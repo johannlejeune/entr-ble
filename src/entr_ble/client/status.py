@@ -29,8 +29,8 @@ type DeviceConfig = BasicDeviceConfig | NizDeviceConfig
 
 class Status(TransportClient):
     async def get_lock_sn(self) -> LockSerial:
-        # Same plain "simple command" shape as GetCommVer: the payload command
-        # byte is a hardcoded 0 placeholder.
+        # The payload byte is an unused placeholder; the command id is in the
+        # outer control frame.
         _, payload = await self._send_raw(const.GET_LOCK_SN, bytes([0]))
         length = payload[1]
         serial = payload[2 : 2 + length].decode("ascii", errors="replace")
