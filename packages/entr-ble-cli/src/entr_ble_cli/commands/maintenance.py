@@ -1,10 +1,4 @@
-import argparse
-import sys
-
-from entr_ble import const
-
-from ..store import remove as remove_credentials
-from .common import session
+from .common import handle
 
 
 def register(sub):
@@ -64,97 +58,13 @@ def register(sub):
     )
 
     return {
-        "calibrate": calibrate,
-        "magnet-calibrate": magnet_calibrate,
-        "factory-reset": factory_reset,
-        "set-time": set_time,
-        "audit-trail": audit_trail,
-        "get-errors": get_errors,
+        name: handle
+        for name in (
+            "calibrate",
+            "magnet-calibrate",
+            "factory-reset",
+            "set-time",
+            "audit-trail",
+            "get-errors",
+        )
     }
-
-
-async def calibrate(args: argparse.Namespace) -> None:
-    client, creds = await session(args.address)
-    door = {"left": 1, "right": 3}[args.door]
-    lock_type = {"normal": 0, "lift": 2}[args.type]
-    try:
-        await client.calibrate(
-            bytes.fromhex(creds.app_id), args.admin_code, door, lock_type
-        )
-    finally:
-        await client.disconnect()
-    print(f"calibration done (door {args.door}, lock type {args.type})")
-    print("now run magnet-calibrate with the door magnet in place")
-
-
-async def magnet_calibrate(args: argparse.Namespace) -> None:
-    client, creds = await session(args.address)
-    try:
-        await client.magnet_calibrate(bytes.fromhex(creds.app_id), args.admin_code)
-    finally:
-        await client.disconnect()
-    print("magnet calibration done")
-
-
-async def factory_reset(args: argparse.Namespace) -> None:
-    if not args.yes:
-        answer = input(
-            f"wipe all users and settings on {args.address}? type 'yes' to confirm: "
-        )
-        if answer.strip().lower() != "yes":
-            sys.exit("aborted")
-    client, creds = await session(args.address)
-    try:
-        await client.factory_reset(bytes.fromhex(creds.app_id), args.admin_code)
-    finally:
-        await client.disconnect()
-    remove_credentials(args.address)
-    print("factory reset done, local credentials removed")
-
-
-async def set_time(args: argparse.Namespace) -> None:
-    client, creds = await session(args.address)
-    try:
-        await client.update_time(bytes.fromhex(creds.app_id))
-    finally:
-        await client.disconnect()
-    print("lock time set to current UTC time")
-
-
-async def audit_trail(args: argparse.Namespace) -> None:
-    client, creds = await session(args.address)
-    admin_code = args.admin_code or const.DEFAULT_AUDIT_PASSWORD
-    try:
-        status = await client.audit_trail_status(
-            admin_code, bytes.fromhex(creds.app_id)
-        )
-        print(f"records in log: {status['records_count']}")
-        for record in await client.audit_trail_records(
-            admin_code, bytes.fromhex(creds.app_id)
-        ):
-            date = record.get("date", "?")
-            user = record.get("user", "?") or "-"
-            event = record.get("event", "?")
-            print(f"{date}  {event:<18}  {user}")
-    finally:
-        await client.disconnect()
-
-
-async def get_errors(args: argparse.Namespace) -> None:
-    try:
-        query = bytes.fromhex(args.query)
-    except ValueError:
-        sys.exit("--query must be hex, e.g. 0000000000000000")
-    client, _creds = await session(args.address)
-    try:
-        result = await client.get_errors(query)
-    finally:
-        await client.disconnect()
-    if result["empty"]:
-        print(f"no errors logged ({result['length']} bytes, all zero)")
-    data = bytes.fromhex(result["data"])
-    if not result["empty"] or args.raw:
-        for offset in range(0, len(data), 8):
-            print(f"{offset:04x}  {data[offset : offset + 8].hex(' ')}")
-    if args.raw:
-        print(f"raw: {result['raw']}")

@@ -1,16 +1,4 @@
-import argparse
-import os
-
-from entr_ble import const
-from entr_ble.client import (
-    EntrLockClient,
-    EntrLockError,
-    build_lock_name,
-    user_id_bytes,
-)
-
-from ..store import LockCredentials
-from ..store import put as put_credentials
+from .common import handle
 
 
 def register(sub):
@@ -57,121 +45,10 @@ def register(sub):
     p.add_argument("key_code", help="6-character key code supplied by an owner")
 
     return {
-        "set-owner": set_owner,
-        "enroll": enroll,
-        "activate": activate,
+        name: handle
+        for name in (
+            "set-owner",
+            "enroll",
+            "activate",
+        )
     }
-
-
-async def set_owner(args: argparse.Namespace) -> None:
-    """Set up an uninitialized lock for the first time."""
-    client = EntrLockClient(args.address)
-    app_id = os.urandom(16)
-    await client.connect()
-    try:
-        comm_version = await client.fetch_comm_version()
-        print(f"comm version: {comm_version}")
-        await client.pair()
-        print("ECDH pairing done")
-        await client.handshake(app_id)
-        print("handshake done, session ready")
-        result = await client.set_owner(
-            args.admin_code,
-            app_id,
-            user_id_bytes(args.user),
-            build_lock_name(args.name),
-            args.provider,
-        )
-        print(f"owner claimed: kdf_id={result['kdf_id']}")
-        if args.sync_time:
-            try:
-                await client.update_time(app_id)
-                print("lock time set")
-            except EntrLockError as exc:
-                # Command 80 only answers on NIZ firmware; claiming must not fail over it.
-                print(f"warning: could not set the lock clock ({exc})")
-    finally:
-        await client.disconnect()
-
-    assert client.session is not None
-    creds = LockCredentials(
-        address=args.address,
-        app_id=app_id.hex(),
-        user_id=user_id_bytes(args.user).hex(),
-        ble_ekey=result["ble_ekey"].hex(),
-        kdf_id=result["kdf_id"],
-        aes_key=client.session.key.hex(),
-        comm_version=comm_version,
-        lock_name=args.name,
-    )
-    put_credentials(creds)
-    print(f"credentials saved for {args.address}")
-    print("if the lock is uncalibrated, run 'calibrate' then 'magnet-calibrate'")
-
-
-async def enroll(args: argparse.Namespace) -> None:
-    client = EntrLockClient(args.address)
-    app_id = os.urandom(16)
-    await client.connect()
-    try:
-        comm_version = await client.fetch_comm_version()
-        print(f"comm version: {comm_version}")
-        await client.pair()
-        print("ECDH pairing done")
-        await client.handshake(app_id)
-        print("handshake done, session ready")
-        result = await client.recover_owner(args.admin_code, app_id)
-        print(
-            f"recovered owner: user_id={result['user_id'].hex()} kdf_id={result['kdf_id']}"
-        )
-    finally:
-        await client.disconnect()
-
-    assert client.session is not None
-    creds = LockCredentials(
-        address=args.address,
-        app_id=app_id.hex(),
-        user_id=result["user_id"].hex(),
-        ble_ekey=result["ble_ekey"].hex(),
-        kdf_id=result["kdf_id"],
-        aes_key=client.session.key.hex(),
-        comm_version=comm_version,
-        lock_name=args.name,
-    )
-    put_credentials(creds)
-    print(f"credentials saved for {args.address}")
-
-
-async def activate(args: argparse.Namespace) -> None:
-    """Redeems a key the owner created for us, leaving the owner device intact."""
-    client = EntrLockClient(args.address)
-    app_id = os.urandom(16)
-    await client.connect()
-    try:
-        comm_version = await client.fetch_comm_version()
-        print(f"comm version: {comm_version}")
-        await client.pair()
-        print("ECDH pairing done")
-        await client.handshake(app_id)
-        print("handshake done, session ready")
-        result = await client.get_new_key(args.key_code, app_id)
-        role = const.ROLE_NAMES.get(result["role"], result["role"])
-        print(
-            f"key activated: user_id={result['user_id'].hex()} role={role} kdf_id={result['kdf_id']}"
-        )
-    finally:
-        await client.disconnect()
-
-    assert client.session is not None
-    creds = LockCredentials(
-        address=args.address,
-        app_id=app_id.hex(),
-        user_id=result["user_id"].hex(),
-        ble_ekey=result["ble_ekey"].hex(),
-        kdf_id=result["kdf_id"],
-        aes_key=client.session.key.hex(),
-        comm_version=comm_version,
-        role=result["role"],
-    )
-    put_credentials(creds)
-    print(f"credentials saved for {args.address}")

@@ -1,7 +1,4 @@
-import argparse
-from collections.abc import Mapping
-
-from .common import session
+from .common import handle
 
 
 def register(sub):
@@ -26,44 +23,10 @@ def register(sub):
     )
 
     return {
-        "status": status,
-        "info": info,
-        "device-info": device_info,
+        name: handle
+        for name in (
+            "status",
+            "info",
+            "device-info",
+        )
     }
-
-
-async def status(args: argparse.Namespace) -> None:
-    client, _creds = await session(args.address)
-    try:
-        config = await client.get_device_config()
-        _print_fields(config, args.raw)
-    finally:
-        await client.disconnect()
-
-
-async def info(args: argparse.Namespace) -> None:
-    client, _creds = await session(args.address)
-    try:
-        info = await client.get_lock_sn()
-        _print_fields(info, args.raw)
-        print(f"comm_version: {client.comm_version}")
-    finally:
-        await client.disconnect()
-
-
-async def device_info(args: argparse.Namespace) -> None:
-    client, _creds = await session(args.address)
-    try:
-        info = await client.get_device_info()
-        _print_fields(info, args.raw)
-    finally:
-        await client.disconnect()
-
-
-def _print_fields(fields: Mapping[str, object], show_raw: bool) -> None:
-    """The undecoded response bytes are only useful when cross-checking the
-    decoding itself, so they stay out of the way unless asked for."""
-    for key, value in fields.items():
-        if key == "raw" and not show_raw:
-            continue
-        print(f"{key}: {value}")
