@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ENTR BLE",
+        "description": "Import credentials created by entr-ble. The lock state is intentionally unknown because the protocol does not provide a trustworthy physical lock position.",
+        "data": {
+          "address": "Bluetooth address",
+          "credentials_json": "Credentials JSON",
+          "app_id": "App ID",
+          "user_id": "User ID",
+          "ble_ekey": "BLE eKey",
+          "kdf_id": "KDF ID",
+          "aes_key": "AES key",
+          "comm_version": "Communication version",
+          "role": "Role",
+          "lock_name": "Lock name"
+        }
+      }
+    },
+    "error": {
+      "invalid_credentials": "Enter valid credentials JSON or all credential fields."
+    }
+  }
+}

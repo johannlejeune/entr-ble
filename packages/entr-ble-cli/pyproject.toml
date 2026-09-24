@@ -1,0 +1,17 @@
+[project]
+name = "entr-ble-cli"
+version = "0.1.0"
+description = "Command-line interface for ENTR Bluetooth locks"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = ["entr-ble==0.1.0"]
+
+[project.scripts]
+entr-ble = "entr_ble_cli:main"
+
+[tool.uv.sources]
+entr-ble = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"

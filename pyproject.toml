@@ -1,0 +1,23 @@
+[project]
+name = "entr-ble"
+version = "0.1.0"
+description = "Python client for ENTR Bluetooth locks"
+readme = "README.md"
+authors = [
+    { name = "Johann Lejeune", email = "tofupedia.fr@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "bleak>=3.0.2",
+    "cryptography>=48.0.1",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/entr_ble/client/*.py" = ["PLR0402"]
+
+[tool.uv.workspace]
+members = ["packages/entr-ble-cli"]
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
