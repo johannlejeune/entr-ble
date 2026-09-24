@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 
 from textual import on, work
@@ -8,7 +9,7 @@ from textual.widget import Widget
 from textual.widgets import Button, Footer, Header, Input, Label, OptionList, Static
 from textual.widgets.option_list import Option
 
-from . import workflows
+from .workflows import LockSession, scan
 
 
 @dataclass(frozen=True)
@@ -139,13 +140,26 @@ ACTION_GROUPS = (
     (
         "Information",
         (
-            Action("status", "Status"),
-            Action("info", "Lock information"),
-            Action("device-info", "Device information"),
+            Action(
+                "status", "Status", (Field("raw", "Show raw response (yes/no)", "no"),)
+            ),
+            Action(
+                "info",
+                "Lock information",
+                (Field("raw", "Show raw response (yes/no)", "no"),),
+            ),
+            Action(
+                "device-info",
+                "Device information",
+                (Field("raw", "Show raw response (yes/no)", "no"),),
+            ),
             Action(
                 "get-errors",
                 "Error log",
-                (Field("query", "Query hex", "0000000000000000"),),
+                (
+                    Field("query", "Query hex", "0000000000000000"),
+                    Field("raw", "Show raw response (yes/no)", "no"),
+                ),
             ),
             Action(
                 "audit-trail",
@@ -251,9 +265,10 @@ class EntrBleApp(App[None]):
     def __init__(self, address: str | None = None) -> None:
         super().__init__()
         self.address = address
-        self.session: workflows.LockSession | None = None
+        self.session: LockSession | None = None
         self.show_all = False
         self.busy = False
+        self._session_lock = asyncio.Lock()
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -275,6 +290,7 @@ class EntrBleApp(App[None]):
         yield Footer()
 
     def on_mount(self) -> None:
+        self.set_interval(1, self._check_connection)
         if self.address:
             self.connect_lock(self.address)
         else:
@@ -310,33 +326,35 @@ class EntrBleApp(App[None]):
     async def scan_devices(self) -> None:
         self._set_connection_status("Scanning nearby Bluetooth devices…")
         try:
-            lines = await workflows.scan(show_all=self.show_all)
+            lines = await scan(show_all=self.show_all)
         except Exception as exc:  # noqa: BLE001
             self._set_connection_status(f"Scan failed: {exc}")
             return
         options = self.query_one("#scan-results", OptionList)
         options.clear_options()
+        devices = [line for line in lines if not line.startswith(("no ENTR", "("))]
         options.add_options(
-            Option(line, id=line.split(maxsplit=1)[0]) for line in lines
+            Option(line, id=line.split(maxsplit=1)[0]) for line in devices
         )
         self._set_connection_status(
-            f"Found {len(lines)} device(s). Select one or enter an address."
+            f"Found {len(devices)} device(s). Select one or enter an address."
         )
 
     @work(group="connection")
     async def connect_lock(self, address: str) -> None:
-        await self._close_session()
-        self._set_connection_status(f"Connecting to {address}…")
-        session = workflows.LockSession(address)
-        try:
-            await session.__aenter__()
-        except Exception as exc:  # noqa: BLE001
-            self._set_connection_status(f"Could not connect to {address}: {exc}")
-            return
-        self.address = address
-        self.session = session
-        self._set_connection_status(f"Connected to {address}")
-        await self._show_actions()
+        async with self._session_lock:
+            await self._close_session()
+            self._set_connection_status(f"Connecting to {address}…")
+            session = LockSession(address)
+            try:
+                await session.__aenter__()
+            except Exception as exc:  # noqa: BLE001
+                self._set_connection_status(f"Could not connect to {address}: {exc}")
+                return
+            self.address = address
+            self.session = session
+            self._set_connection_status(f"Connected to {address}")
+            await self._show_actions()
 
     @on(Button.Pressed, ".action")
     def action_button(self, event: Button.Pressed) -> None:
@@ -358,7 +376,11 @@ class EntrBleApp(App[None]):
     def _form_done(self, action: Action, values: dict[str, str] | None) -> None:
         if values is None:
             return
-        kwargs = self._normalize_values(values)
+        try:
+            kwargs = self._normalize_values(values)
+        except ValueError as exc:
+            self.notify(str(exc), severity="warning")
+            return
         if action.destructive:
             self.push_screen(
                 Confirmation(action.label),
@@ -375,7 +397,8 @@ class EntrBleApp(App[None]):
 
     @work(group="commands")
     async def run_lock_action(self, action: Action, kwargs: dict[str, object]) -> None:
-        if self.session is None or not self.session.connected:
+        session = self.session
+        if session is None or not session.connected:
             self._set_result(
                 "The lock is disconnected. Reconnect before sending a command."
             )
@@ -383,7 +406,12 @@ class EntrBleApp(App[None]):
         self._set_busy(True)
         self._set_result(f"Running {action.label}…")
         try:
-            lines = await self.session.run(action.command, **kwargs)
+            async with self._session_lock:
+                if self.session is not session or not session.connected:
+                    raise RuntimeError(
+                        "lock connection changed; reconnect before retrying"
+                    )
+                lines = await session.run(action.command, **kwargs)
         except Exception as exc:  # noqa: BLE001
             self._set_result(f"{action.label} failed:\n{exc}")
         else:
@@ -403,12 +431,14 @@ class EntrBleApp(App[None]):
 
     @work(group="connection")
     async def disconnect_lock(self) -> None:
-        await self._close_session()
-        self._set_connection_status("Disconnected. Choose a lock to connect.")
-        await self._clear_actions()
+        async with self._session_lock:
+            await self._close_session()
+            self._set_connection_status("Disconnected. Choose a lock to connect.")
+            await self._clear_actions()
 
     async def on_unmount(self) -> None:
-        await self._close_session()
+        async with self._session_lock:
+            await self._close_session()
 
     async def _close_session(self) -> None:
         if self.session is not None:
@@ -457,22 +487,61 @@ class EntrBleApp(App[None]):
 
     def _set_busy(self, busy: bool) -> None:
         self.busy = busy
+        disconnected = self.session is None or not self.session.connected
         for button in self.query("Button.action"):
-            button.disabled = busy
+            button.disabled = busy or disconnected
+
+    def _check_connection(self) -> None:
+        if self.session is not None and not self.session.connected:
+            self._set_connection_status("Connection lost. Reconnect to continue.")
+            self._set_busy(self.busy)
 
     @staticmethod
     def _normalize_values(values: dict[str, str]) -> dict[str, object]:
+        choices = {
+            "role": {
+                "user",
+                "admin",
+                "remote-control",
+                "wall-reader",
+                "integration-unit",
+            },
+            "volume": {"high", "medium", "low", "muted"},
+            "auto_lock": {"on", "off"},
+            "door": {"left", "right"},
+            "type": {"normal", "lift"},
+        }
         result: dict[str, object] = {}
         for key, value in values.items():
             if not value:
                 continue
             if key == "provider" or key == "expiration":
-                result[key] = int(value)
-            elif key == "sync_time":
-                result[key] = value.lower() in {"yes", "true", "1"}
+                try:
+                    result[key] = int(value)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"{key.replace('_', ' ').capitalize()} must be a whole number."
+                    ) from exc
+            elif key == "sync_time" or key == "raw":
+                result[key] = EntrBleApp._boolean_value(key, value)
+            elif key in choices:
+                if value not in choices[key]:
+                    valid = ", ".join(sorted(choices[key]))
+                    raise ValueError(
+                        f"{key.replace('_', ' ').capitalize()} must be one of: {valid}."
+                    )
+                result[key] = value
             else:
                 result[key] = value
         return result
+
+    @staticmethod
+    def _boolean_value(key: str, value: str) -> bool:
+        if value.lower() in {"yes", "true", "1"}:
+            return True
+        if value.lower() in {"no", "false", "0"}:
+            return False
+        raise ValueError(f"{key.replace('_', ' ').capitalize()} must be yes or no.")
 
 
 ACTIONS = {action.command: action for _, group in ACTION_GROUPS for action in group}
