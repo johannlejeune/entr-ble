@@ -54,11 +54,14 @@ class TuiTests(unittest.IsolatedAsyncioTestCase):
                 self.assertNotEqual(button.styles.background, idle_background)
                 self.assertNotIn("reverse", str(button.styles.text_style))
                 address = app.query_one("#address", Input)
+                input_idle_background = address.styles.background
                 address.focus()
                 await pilot.pause()
                 input_focus_background = address.styles.background
                 options = app.query_one("#scan-results", OptionList)
                 idle_background = options.styles.background
+                self.assertGreater(idle_background.a, 0)
+                self.assertEqual(idle_background, input_idle_background)
                 options.focus()
                 await pilot.pause()
                 self.assertNotEqual(options.styles.background, idle_background)
@@ -99,8 +102,16 @@ class TuiTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(address.region.x, scan_button.region.x)
                 self.assertEqual(scan_button.region.y, toggle.region.y)
                 self.assertEqual(
-                    address.region.x, app.query_one("#scan-results").region.x
+                    scan_button.region.y - (address.region.y + address.region.height), 1
                 )
+                scan_results = app.query_one("#scan-results", OptionList)
+                self.assertEqual(
+                    scan_results.region.y
+                    - (scan_button.region.y + scan_button.region.height),
+                    1,
+                )
+                self.assertGreaterEqual(scan_results.region.height, 3)
+                self.assertEqual(address.region.x, scan_results.region.x)
                 address.value = "AA:BB:CC:DD:EE:FF"
                 address.focus()
                 await pilot.press("enter")
