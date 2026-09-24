@@ -2,9 +2,7 @@ import asyncio
 import os
 from typing import Any
 
-from bleak import BleakScanner
-
-from entr_ble import advertising, const
+from entr_ble import const
 from entr_ble.client import (
     EntrLockClient,
     EntrLockError,
@@ -140,27 +138,3 @@ class LockSession:
         from ._operations import run_authenticated
 
         return await run_authenticated(self, command, creds, p)
-
-
-async def scan(timeout: float = 5.0, show_all: bool = False) -> list[str]:
-    found = await BleakScanner.discover(timeout=timeout, return_adv=True)
-    locks, others = [], []
-    for address, (device, adv) in found.items():
-        lock = advertising.parse_advertisement(address, adv)
-        if lock is not None:
-            locks.append(lock)
-        else:
-            others.append((address, device.name or "?"))
-    lines = [
-        f"{lock.address} ENTR name={lock.name} state={lock.state_name} rssi={lock.rssi}"
-        for lock in sorted(locks, key=lambda x: -x.rssi)
-    ]
-    if not locks:
-        lines.append("no ENTR lock found")
-    if show_all:
-        lines.extend(f"{address} {name}" for address, name in sorted(others))
-    elif others:
-        lines.append(
-            f"({len(others)} other BLE devices hidden, use --all to show them)"
-        )
-    return lines

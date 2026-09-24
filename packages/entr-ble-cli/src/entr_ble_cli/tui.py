@@ -1,204 +1,22 @@
 import asyncio
-from dataclasses import dataclass
+from typing import ClassVar
 
 from textual import on, work
 from textual.app import App, ComposeResult
+from textual.binding import Binding, BindingType
 from textual.containers import Container, Grid, Horizontal, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widget import Widget
-from textual.widgets import Button, Footer, Header, Input, Label, OptionList, Static
+from textual.widgets import Button, Input, Label, LoadingIndicator, OptionList, Static
 from textual.widgets.option_list import Option
 
-from .workflows import LockSession, scan
-
-
-@dataclass(frozen=True)
-class Field:
-    name: str
-    label: str
-    default: str = ""
-    password: bool = False
-    required: bool = True
-
-
-@dataclass(frozen=True)
-class Action:
-    command: str
-    label: str
-    fields: tuple[Field, ...] = ()
-    destructive: bool = False
-
-
-SETUP_ACTIONS = (
-    Action(
-        "set-owner",
-        "Set owner",
-        (
-            Field("admin_code", "New owner password", password=True),
-            Field("name", "Lock name"),
-            Field("user", "Owner name", "owner"),
-            Field("provider", "Provider ID", "4"),
-            Field("sync_time", "Sync time (yes/no)", "no"),
-        ),
-        True,
-    ),
-    Action(
-        "enroll",
-        "Claim owner slot",
-        (
-            Field("admin_code", "Owner password", password=True),
-            Field("name", "Lock name (optional)", required=False),
-        ),
-        True,
-    ),
-    Action("activate", "Activate key", (Field("key_code", "Key code", password=True),)),
-)
-
-ACTION_GROUPS = (
-    (
-        "Access",
-        (
-            Action("unlock", "Unlock"),
-            Action("lock", "Lock"),
-        ),
-    ),
-    (
-        "Users",
-        (
-            Action(
-                "list-users",
-                "List users",
-                (Field("admin_code", "Admin code", password=True),),
-            ),
-            Action(
-                "create-user",
-                "Create user",
-                (
-                    Field("admin_code", "Admin code", password=True),
-                    Field("name", "User name"),
-                    Field("role", "Role", "user"),
-                    Field("expiration", "Key expiry in hours", "3"),
-                    Field("code", "Key code (optional)", required=False),
-                ),
-            ),
-            Action(
-                "set-admin-code",
-                "Set own admin code",
-                (Field("admin_code", "New admin code", password=True),),
-            ),
-            Action(
-                "delete-user",
-                "Delete user",
-                (
-                    Field("admin_code", "Admin code", password=True),
-                    Field("name", "User name"),
-                ),
-                True,
-            ),
-            Action(
-                "disable-user",
-                "Disable user",
-                (
-                    Field("admin_code", "Admin code", password=True),
-                    Field("name", "User name"),
-                ),
-                True,
-            ),
-            Action(
-                "enable-user",
-                "Enable user",
-                (
-                    Field("admin_code", "Admin code", password=True),
-                    Field("name", "User name"),
-                ),
-            ),
-        ),
-    ),
-    (
-        "Settings",
-        (
-            Action(
-                "change-admin-code",
-                "Change admin code",
-                (
-                    Field("old_code", "Current admin code", password=True),
-                    Field("new_code", "New admin code", password=True),
-                    Field("name", "Lock name (optional)", required=False),
-                ),
-            ),
-            Action(
-                "settings",
-                "Update settings",
-                (
-                    Field("admin_code", "Admin code", password=True),
-                    Field("volume", "Volume: high, medium, low, muted", required=False),
-                    Field("auto_lock", "Auto-lock: on, off", required=False),
-                    Field("name", "Lock name (optional)", required=False),
-                ),
-            ),
-        ),
-    ),
-    (
-        "Information",
-        (
-            Action(
-                "status", "Status", (Field("raw", "Show raw response (yes/no)", "no"),)
-            ),
-            Action(
-                "info",
-                "Lock information",
-                (Field("raw", "Show raw response (yes/no)", "no"),),
-            ),
-            Action(
-                "device-info",
-                "Device information",
-                (Field("raw", "Show raw response (yes/no)", "no"),),
-            ),
-            Action(
-                "get-errors",
-                "Error log",
-                (
-                    Field("query", "Query hex", "0000000000000000"),
-                    Field("raw", "Show raw response (yes/no)", "no"),
-                ),
-            ),
-            Action(
-                "audit-trail",
-                "Audit trail",
-                (Field("admin_code", "Admin code (optional)", required=False),),
-            ),
-        ),
-    ),
-    (
-        "Maintenance",
-        (
-            Action(
-                "calibrate",
-                "Calibrate",
-                (
-                    Field("admin_code", "Admin code", password=True),
-                    Field("door", "Door direction: left, right", "left"),
-                    Field("type", "Lock type: normal, lift", "normal"),
-                ),
-            ),
-            Action(
-                "magnet-calibrate",
-                "Calibrate door magnet",
-                (Field("admin_code", "Admin code", password=True),),
-            ),
-            Action("set-time", "Set lock time"),
-            Action(
-                "factory-reset",
-                "Factory reset",
-                (Field("admin_code", "Admin code", password=True),),
-                True,
-            ),
-        ),
-    ),
-)
+from ._discovery import ScanItem, discover
+from .tui_actions import ACTION_GROUPS, ACTIONS, SETUP_ACTIONS, Action, normalize_values
+from .workflows import LockSession
 
 
 class ActionForm(ModalScreen[dict[str, str] | None]):
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "cancel", "Cancel")]
+
     def __init__(self, action: Action) -> None:
         super().__init__()
         self.action = action
@@ -224,15 +42,35 @@ class ActionForm(ModalScreen[dict[str, str] | None]):
         for field in self.action.fields:
             if field.required and not values[field.name]:
                 self.notify(f"{field.label} is required.", severity="warning")
+                self.query_one(f"#field-{field.name}", Input).focus()
                 return
+        try:
+            normalize_values(values)
+        except ValueError as exc:
+            self.notify(str(exc), severity="warning")
+            return
         self.dismiss(values)
+
+    @on(Input.Submitted)
+    def advance(self, event: Input.Submitted) -> None:
+        fields = [field.name for field in self.action.fields]
+        index = fields.index((event.input.id or "").removeprefix("field-"))
+        if index + 1 == len(fields):
+            self.submit()
+        else:
+            self.query_one(f"#field-{fields[index + 1]}", Input).focus()
 
     @on(Button.Pressed, "#cancel-action")
     def cancel(self) -> None:
+        self.action_cancel()
+
+    def action_cancel(self) -> None:
         self.dismiss(None)
 
 
 class Confirmation(ModalScreen[bool]):
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "cancel", "Cancel")]
+
     def __init__(self, label: str) -> None:
         super().__init__()
         self.label = label
@@ -250,18 +88,34 @@ class Confirmation(ModalScreen[bool]):
 
     @on(Button.Pressed, "#cancel-confirmation")
     def cancel(self) -> None:
+        self.action_cancel()
+
+    def action_cancel(self) -> None:
         self.dismiss(False)
 
 
-class EntrBleApp(App[None]):
+class EntrBleApp(App[None], inherit_bindings=False):
     TITLE = "ENTR BLE"
+    ENABLE_COMMAND_PALETTE = False
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("ctrl+c", "quit", "Quit", priority=True),
+        Binding("f2", "toggle_all", "Show or hide all devices"),
+    ]
     CSS = """
     Screen { layout: vertical; }
-    #connection, #actions { height: 1fr; padding: 1 2; }
-    #connection-status { margin-bottom: 1; }
+    #title { height: 1; padding: 0 2; text-style: bold; }
+    #discovery, #dashboard { height: 1fr; padding: 1 2; }
+    #dashboard { display: none; }
+    #address-row, #scan-row, #connection-actions { height: 3; }
+    #address { width: 1fr; }
+    #connection-status, #lock-status { height: auto; min-height: 2; }
+    #loading { display: none; width: 12; height: 3; }
     #scan-results { height: 1fr; border: solid $primary; }
-    #result { height: auto; min-height: 5; padding: 1; border: solid $primary; }
-    #action-form, #confirmation { grid-size: 2; grid-gutter: 1 2; width: 60; height: auto; padding: 2; background: $surface; }
+    #actions { height: 1fr; border: solid $primary; }
+    #result-panel { height: 4; border: solid $primary; }
+    #result { padding: 0 1; }
+    ActionForm, Confirmation { align: center middle; }
+    #action-form, #confirmation { grid-size: 2; grid-gutter: 1 1; width: 90%; max-width: 60; height: auto; max-height: 90%; overflow-y: auto; padding: 1; background: $surface; }
     #form-title { column-span: 2; text-style: bold; }
     #action-form Horizontal, #confirmation Horizontal { column-span: 2; align-horizontal: right; }
     #confirmation { grid-size: 1; }
@@ -272,38 +126,56 @@ class EntrBleApp(App[None]):
         self.address = address
         self.session: LockSession | None = None
         self.show_all = False
+        self._scan_items: list[ScanItem] = []
         self.busy = False
+        self._scanning = False
+        self._scan_generation = 0
+        self._connecting = False
         self._session_lock = asyncio.Lock()
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Container(id="connection"):
+        yield Static("ENTR BLE · F2 all · Ctrl+C quit", id="title")
+        with Container(id="discovery"):
             yield Static(
                 "Choose a nearby lock or enter its Bluetooth address.",
                 id="connection-status",
             )
-            with Horizontal():
+            with Horizontal(id="address-row"):
                 yield Input(
                     self.address or "", placeholder="Bluetooth address", id="address"
                 )
                 yield Button("Connect", variant="primary", id="connect")
+            with Horizontal(id="scan-row"):
                 yield Button("Scan", id="scan")
                 yield Button("Show all devices", id="toggle-all")
+            yield LoadingIndicator(id="loading")
             yield OptionList(id="scan-results")
-        with VerticalScroll(id="actions"):
-            yield Static("Connect to a lock to show its commands.", id="result")
-        yield Footer()
+        with Container(id="dashboard"):
+            yield Static("", id="lock-status")
+            with Horizontal(id="connection-actions"):
+                yield Button("Change lock", id="disconnect")
+                yield Button("Reconnect", id="reconnect")
+            yield OptionList(id="actions")
+            with VerticalScroll(id="result-panel"):
+                yield Static("", id="result")
 
     def on_mount(self) -> None:
         self.set_interval(1, self._check_connection)
+        self.query_one("#address", Input).focus()
         if self.address:
             self.connect_lock(self.address)
         else:
             self.scan_devices()
 
+    @on(Input.Submitted, "#address")
+    def address_submitted(self, event: Input.Submitted) -> None:
+        self._connect_address(event.value.strip())
+
     @on(Button.Pressed, "#connect")
     def connect_button(self) -> None:
-        address = self.query_one("#address", Input).value.strip()
+        self._connect_address(self.query_one("#address", Input).value.strip())
+
+    def _connect_address(self, address: str) -> None:
         if address:
             self.connect_lock(address)
         else:
@@ -319,7 +191,11 @@ class EntrBleApp(App[None]):
         self.query_one("#toggle-all", Button).label = (
             "Hide unrelated devices" if self.show_all else "Show all devices"
         )
-        self.scan_devices()
+        self._render_scan()
+
+    def action_toggle_all(self) -> None:
+        if self.query_one("#discovery").display:
+            self.toggle_all()
 
     @on(OptionList.OptionSelected, "#scan-results")
     def select_device(self, event: OptionList.OptionSelected) -> None:
@@ -329,42 +205,78 @@ class EntrBleApp(App[None]):
 
     @work(group="scan", exclusive=True)
     async def scan_devices(self) -> None:
-        self._set_connection_status("Scanning nearby Bluetooth devices…")
-        try:
-            lines = await scan(show_all=self.show_all)
-        except Exception as exc:  # noqa: BLE001
-            self._set_connection_status(f"Scan failed: {exc}")
+        if self._connecting:
             return
+        self._scan_generation += 1
+        generation = self._scan_generation
+        self._scanning = True
+        self._set_connection_status("Scanning nearby Bluetooth devices…")
+        self._set_loading(True)
+        try:
+            items = await discover()
+        except Exception as exc:  # noqa: BLE001
+            if not self._connecting:
+                self._set_connection_status(f"Scan failed: {exc}")
+            return
+        finally:
+            if generation == self._scan_generation:
+                self._scanning = False
+                if not self._connecting:
+                    self._set_loading(False)
+        if (
+            self._connecting
+            or self.session is not None
+            or generation != self._scan_generation
+        ):
+            return
+        self._scan_items = items
+        self._render_scan()
+
+    def _render_scan(self) -> None:
         options = self.query_one("#scan-results", OptionList)
         options.clear_options()
-        devices = [line for line in lines if not line.startswith(("no ENTR", "("))]
-        options.add_options(
-            Option(line, id=line.split(maxsplit=1)[0]) for line in devices
+        visible = [item for item in self._scan_items if item.is_lock or self.show_all]
+        options.add_options(Option(item.label, id=item.address) for item in visible)
+        locks = sum(item.is_lock for item in self._scan_items)
+        others = len(self._scan_items) - locks
+        detail = (
+            f", {others} other device(s)" if self.show_all else f", {others} hidden"
         )
-        self._set_connection_status(
-            f"Found {len(devices)} device(s). Select one or enter an address."
-        )
+        if not self._scanning:
+            self._set_connection_status(
+                f"Found {locks} lock(s){detail}. Select one or enter an address."
+            )
 
     @work(group="connection")
     async def connect_lock(self, address: str) -> None:
+        if self._connecting:
+            return
+        self._connecting = True
         async with self._session_lock:
-            await self._close_session()
-            await self._clear_actions()
-            self._set_connection_status(f"Connecting to {address}…")
-            session = LockSession(address)
             try:
+                await self._close_session()
+                self._show_discovery()
+                self._set_loading(True)
+                self._set_connection_status(f"Connecting to {address}…")
+                session = LockSession(address)
                 await session.__aenter__()
+                self.address = address
+                self.session = session
+                self._show_actions()
+                self._show_dashboard()
+                self._set_result("")
+                self._set_connection_status(f"Connected to {address}")
             except Exception as exc:  # noqa: BLE001
                 self._set_connection_status(f"Could not connect to {address}: {exc}")
-                return
-            self.address = address
-            self.session = session
-            self._set_connection_status(f"Connected to {address}")
-            await self._show_actions()
+            finally:
+                self._set_loading(False)
+                self._connecting = False
 
-    @on(Button.Pressed, ".action")
-    def action_button(self, event: Button.Pressed) -> None:
-        action = ACTIONS[event.button.id or ""]
+    @on(OptionList.OptionSelected, "#actions")
+    def action_selected(self, event: OptionList.OptionSelected) -> None:
+        if event.option.id is None:
+            return
+        action = ACTIONS[event.option.id]
         if self.busy:
             return
         if action.fields:
@@ -383,7 +295,7 @@ class EntrBleApp(App[None]):
         if values is None:
             return
         try:
-            kwargs = self._normalize_values(values)
+            kwargs = normalize_values(values)
         except ValueError as exc:
             self.notify(str(exc), severity="warning")
             return
@@ -421,7 +333,7 @@ class EntrBleApp(App[None]):
         except Exception as exc:  # noqa: BLE001
             self._set_result(f"{action.label} failed:\n{exc}")
         else:
-            await self._show_actions()
+            self._show_actions()
             self._set_result("\n".join(lines) or f"{action.label} completed.")
         finally:
             self._set_busy(False)
@@ -439,8 +351,8 @@ class EntrBleApp(App[None]):
     async def disconnect_lock(self) -> None:
         async with self._session_lock:
             await self._close_session()
+            self._show_discovery()
             self._set_connection_status("Disconnected. Choose a lock to connect.")
-            await self._clear_actions()
 
     async def on_unmount(self) -> None:
         async with self._session_lock:
@@ -451,42 +363,45 @@ class EntrBleApp(App[None]):
             session, self.session = self.session, None
             await session.__aexit__(None, None, None)
 
-    async def _show_actions(self) -> None:
-        actions = self.query_one("#actions", VerticalScroll)
-        await actions.remove_children()
-        children: list[Widget] = [
-            Horizontal(
-                Button("Disconnect", id="disconnect"),
-                Button("Reconnect", id="reconnect"),
-                id="connection-actions",
-            )
-        ]
-        groups: list[tuple[str, tuple[Action, ...]]] = list(ACTION_GROUPS)
+    def _show_actions(self) -> None:
+        options = self.query_one("#actions", OptionList)
+        options.clear_options()
+        groups: list[tuple[str, tuple[Action, ...]]] = []
         if self.session is not None and self.session.credentials is None:
-            groups.insert(0, ("Setup", SETUP_ACTIONS))
+            groups.append(("Setup", SETUP_ACTIONS))
+        else:
+            groups.extend(ACTION_GROUPS)
+        entries: list[Option | None] = []
         for title, group_actions in groups:
-            children.append(
-                Container(
-                    Label(title),
-                    *(
-                        Button(action.label, id=action.command, classes="action")
-                        for action in group_actions
-                    ),
-                    classes="action-group",
-                )
+            if entries:
+                entries.append(None)
+            entries.append(Option(title.upper(), disabled=True))
+            entries.extend(
+                Option(f"  {action.label}", id=action.command)
+                for action in group_actions
             )
-        children.append(Static("", id="result"))
-        await actions.mount_all(children)
-
-    async def _clear_actions(self) -> None:
-        actions = self.query_one("#actions", VerticalScroll)
-        await actions.remove_children()
-        await actions.mount(
-            Static("Connect to a lock to show its commands.", id="result")
-        )
+        options.add_options(entries)
 
     def _set_connection_status(self, message: str) -> None:
-        self.query_one("#connection-status", Static).update(message)
+        target = (
+            "#lock-status"
+            if self.session and self.query_one("#dashboard").display
+            else "#connection-status"
+        )
+        self.query_one(target, Static).update(message)
+
+    def _set_loading(self, loading: bool) -> None:
+        self.query_one("#loading", LoadingIndicator).display = loading
+
+    def _show_discovery(self) -> None:
+        self.query_one("#dashboard").display = False
+        self.query_one("#discovery").display = True
+        self.query_one("#address", Input).focus()
+
+    def _show_dashboard(self) -> None:
+        self.query_one("#discovery").display = False
+        self.query_one("#dashboard").display = True
+        self.query_one("#actions", OptionList).focus()
 
     def _set_result(self, message: str) -> None:
         self.query_one("#result", Static).update(message)
@@ -494,61 +409,9 @@ class EntrBleApp(App[None]):
     def _set_busy(self, busy: bool) -> None:
         self.busy = busy
         disconnected = self.session is None or not self.session.connected
-        for button in self.query("Button.action"):
-            button.disabled = busy or disconnected
+        self.query_one("#actions", OptionList).disabled = busy or disconnected
 
     def _check_connection(self) -> None:
         if self.session is not None and not self.session.connected:
             self._set_connection_status("Connection lost. Reconnect to continue.")
             self._set_busy(self.busy)
-
-    @staticmethod
-    def _normalize_values(values: dict[str, str]) -> dict[str, object]:
-        choices = {
-            "role": {
-                "user",
-                "admin",
-                "remote-control",
-                "wall-reader",
-                "integration-unit",
-            },
-            "volume": {"high", "medium", "low", "muted"},
-            "auto_lock": {"on", "off"},
-            "door": {"left", "right"},
-            "type": {"normal", "lift"},
-        }
-        result: dict[str, object] = {}
-        for key, value in values.items():
-            if not value:
-                continue
-            if key == "provider" or key == "expiration":
-                try:
-                    result[key] = int(value)
-                except ValueError as exc:
-                    raise ValueError(
-                        f"{key.replace('_', ' ').capitalize()} must be a whole number."
-                    ) from exc
-            elif key == "sync_time" or key == "raw":
-                result[key] = EntrBleApp._boolean_value(key, value)
-            elif key in choices:
-                if value not in choices[key]:
-                    valid = ", ".join(sorted(choices[key]))
-                    raise ValueError(
-                        f"{key.replace('_', ' ').capitalize()} must be one of: {valid}."
-                    )
-                result[key] = value
-            else:
-                result[key] = value
-        return result
-
-    @staticmethod
-    def _boolean_value(key: str, value: str) -> bool:
-        if value.lower() in {"yes", "true", "1"}:
-            return True
-        if value.lower() in {"no", "false", "0"}:
-            return False
-        raise ValueError(f"{key.replace('_', ' ').capitalize()} must be yes or no.")
-
-
-ACTIONS = {action.command: action for _, group in ACTION_GROUPS for action in group}
-ACTIONS.update({action.command: action for action in SETUP_ACTIONS})

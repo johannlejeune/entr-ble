@@ -1,6 +1,8 @@
 import argparse
 
-from ..workflows import CommandError, LockSession, scan
+from .._discovery import scan
+from .._shared import CommandError
+from ..workflows import LockSession
 
 
 async def handle(args: argparse.Namespace) -> None:
