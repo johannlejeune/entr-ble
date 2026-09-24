@@ -73,6 +73,12 @@ class TuiTests(unittest.IsolatedAsyncioTestCase):
                 self.assertLessEqual(toggle.region.x + toggle.region.width, 40)
                 self.assertLess(toggle.region.y, 16)
                 address = app.query_one("#address", Input)
+                scan_button = app.query_one("#scan", Button)
+                self.assertEqual(address.region.x, scan_button.region.x)
+                self.assertEqual(scan_button.region.y, toggle.region.y)
+                self.assertEqual(
+                    address.region.x, app.query_one("#scan-results").region.x
+                )
                 address.value = "AA:BB:CC:DD:EE:FF"
                 address.focus()
                 await pilot.press("enter")
@@ -110,6 +116,7 @@ class TuiTests(unittest.IsolatedAsyncioTestCase):
                 form = app.screen.query_one("#action-form")
                 self.assertLessEqual(form.region.x + form.region.width, 40)
                 self.assertLessEqual(form.region.y + form.region.height, 16)
+                self.assertLess(form.query_one("#submit-action", Button).region.y, 16)
                 form.query_one("#field-admin_code", Input).focus()
                 await pilot.press("enter")
                 self.assertIsNotNone(app.focused)

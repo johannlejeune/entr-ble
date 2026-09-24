@@ -106,16 +106,19 @@ class EntrBleApp(App[None], inherit_bindings=False):
     #title { height: 1; padding: 0 2; text-style: bold; }
     #discovery, #dashboard { height: 1fr; padding: 1 2; }
     #dashboard { display: none; }
-    #address-row, #scan-row, #connection-actions { height: 3; }
-    #address { width: 1fr; }
-    #connection-status, #lock-status { height: auto; min-height: 2; }
+    Input { height: 1; border: none; background: $surface; padding: 0 1; }
+    Input:focus { background: $surface-lighten-1; }
+    #address { width: 100%; }
+    Button { width: auto; min-width: 0; height: 1; border: none; background: transparent; padding: 0 1; }
+    Button:focus { background: $surface; }
+    #scan-row, #connection-actions { height: 1; }
+    #connection-status, #lock-status { height: auto; min-height: 1; }
     #loading { display: none; width: 12; height: 3; }
-    #scan-results { height: 1fr; border: solid $primary; }
-    #actions { height: 1fr; border: solid $primary; }
-    #result-panel { height: 4; border: solid $primary; }
+    #scan-results, #actions { height: 1fr; border: none; background: transparent; }
+    #result-panel { height: 4; border: none; }
     #result { padding: 0 1; }
     ActionForm, Confirmation { align: center middle; }
-    #action-form, #confirmation { grid-size: 2; grid-gutter: 1 1; width: 90%; max-width: 60; height: auto; max-height: 90%; overflow-y: auto; padding: 1; background: $surface; }
+    #action-form, #confirmation { grid-size: 2; grid-gutter: 0 1; width: 90%; max-width: 60; height: auto; max-height: 90%; overflow-y: auto; padding: 1; background: $surface; }
     #form-title { column-span: 2; text-style: bold; }
     #action-form Horizontal, #confirmation Horizontal { column-span: 2; align-horizontal: right; }
     #confirmation { grid-size: 1; }
@@ -140,11 +143,11 @@ class EntrBleApp(App[None], inherit_bindings=False):
                 "Choose a nearby lock or enter its Bluetooth address.",
                 id="connection-status",
             )
-            with Horizontal(id="address-row"):
-                yield Input(
-                    self.address or "", placeholder="Bluetooth address", id="address"
-                )
-                yield Button("Connect", variant="primary", id="connect")
+            yield Input(
+                self.address or "",
+                placeholder="Bluetooth address · Enter to connect",
+                id="address",
+            )
             with Horizontal(id="scan-row"):
                 yield Button("Scan", id="scan")
                 yield Button("Show all devices", id="toggle-all")
@@ -170,10 +173,6 @@ class EntrBleApp(App[None], inherit_bindings=False):
     @on(Input.Submitted, "#address")
     def address_submitted(self, event: Input.Submitted) -> None:
         self._connect_address(event.value.strip())
-
-    @on(Button.Pressed, "#connect")
-    def connect_button(self) -> None:
-        self._connect_address(self.query_one("#address", Input).value.strip())
 
     def _connect_address(self, address: str) -> None:
         if address:
@@ -239,12 +238,10 @@ class EntrBleApp(App[None], inherit_bindings=False):
         options.add_options(Option(item.label, id=item.address) for item in visible)
         locks = sum(item.is_lock for item in self._scan_items)
         others = len(self._scan_items) - locks
-        detail = (
-            f", {others} other device(s)" if self.show_all else f", {others} hidden"
-        )
+        detail = f"{others} other devices" if self.show_all else f"{others} hidden"
         if not self._scanning:
             self._set_connection_status(
-                f"Found {locks} lock(s){detail}. Select one or enter an address."
+                f"{locks} {'lock' if locks == 1 else 'locks'} · {detail}"
             )
 
     @work(group="connection")
@@ -371,10 +368,8 @@ class EntrBleApp(App[None], inherit_bindings=False):
             groups.append(("Setup", SETUP_ACTIONS))
         else:
             groups.extend(ACTION_GROUPS)
-        entries: list[Option | None] = []
+        entries: list[Option] = []
         for title, group_actions in groups:
-            if entries:
-                entries.append(None)
             entries.append(Option(title.upper(), disabled=True))
             entries.extend(
                 Option(f"  {action.label}", id=action.command)
@@ -396,11 +391,13 @@ class EntrBleApp(App[None], inherit_bindings=False):
     def _show_discovery(self) -> None:
         self.query_one("#dashboard").display = False
         self.query_one("#discovery").display = True
+        self.query_one("#title", Static).update("ENTR BLE · F2 all · Ctrl+C quit")
         self.query_one("#address", Input).focus()
 
     def _show_dashboard(self) -> None:
         self.query_one("#discovery").display = False
         self.query_one("#dashboard").display = True
+        self.query_one("#title", Static).update("ENTR BLE · Ctrl+C quit")
         self.query_one("#actions", OptionList).focus()
 
     def _set_result(self, message: str) -> None:
