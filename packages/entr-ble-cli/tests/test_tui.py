@@ -4,7 +4,7 @@ from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 from entr_ble_cli import tui
-from textual.widgets import Button, Input, LoadingIndicator, OptionList, Static
+from textual.widgets import Button, Input, OptionList, Static
 
 
 class FakeSession:
@@ -76,7 +76,7 @@ class TuiTests(unittest.IsolatedAsyncioTestCase):
             async with app.run_test() as pilot:
                 await app.connect_lock("AA").wait()
                 await pilot.pause()
-                self.assertFalse(app.query_one("#loading", LoadingIndicator).display)
+                self.assertFalse(app.query_one("#loading", Static).display)
                 self.assertIn(
                     "radio unavailable",
                     str(app.query_one("#connection-status", Static).content),
@@ -116,7 +116,21 @@ class TuiTests(unittest.IsolatedAsyncioTestCase):
                 address.focus()
                 await pilot.press("enter")
                 await pilot.pause()
-                self.assertTrue(app.query_one("#loading", LoadingIndicator).display)
+                loading = app.query_one("#loading", Static)
+                self.assertTrue(loading.display)
+                self.assertEqual(len(str(loading.content)), 1)
+                initial_frame = str(loading.content)
+                app._animate_loading()
+                self.assertNotEqual(str(loading.content), initial_frame)
+                scan_row = app.query_one("#scan-row")
+                self.assertEqual(loading.region.y, scan_row.region.y)
+                self.assertEqual(
+                    loading.region.x, toggle.region.x + toggle.region.width + 1
+                )
+                self.assertLessEqual(
+                    loading.region.x + loading.region.width,
+                    scan_row.region.x + scan_row.region.width,
+                )
                 self.assertIn(
                     "Connecting",
                     str(app.query_one("#connection-status", Static).content),
@@ -127,6 +141,13 @@ class TuiTests(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(app.query_one("#discovery").display)
                 self.assertGreaterEqual(app.query_one("#actions").region.height, 3)
                 self.assertEqual(FakeSession.instances[0].connect_count, 1)
+                await app.run_lock_action(tui.ACTIONS["status"], {}).wait()
+                await pilot.pause()
+                actions = app.query_one("#actions", OptionList)
+                result_panel = app.query_one("#result-panel")
+                self.assertTrue(result_panel.display)
+                self.assertGreater(result_panel.region.y, actions.region.y)
+                self.assertIs(app.focused, actions)
         FakeSession.enter_gate = None
 
     async def test_control_c_quits(self):
@@ -182,7 +203,7 @@ class TuiTests(unittest.IsolatedAsyncioTestCase):
             patch.object(tui, "LockSession", FakeSession),
         ):
             app = tui.EntrBleApp()
-            async with app.run_test() as pilot:
+            async with app.run_test(size=(120, 30)) as pilot:
                 await pilot.pause()
                 options = app.query_one("#scan-results", OptionList)
                 self.assertEqual(options.option_count, 1)
@@ -209,6 +230,26 @@ class TuiTests(unittest.IsolatedAsyncioTestCase):
                 await app.run_lock_action(tui.ACTIONS["lock"], {}).wait()
                 self.assertEqual(session.connect_count, 1)
                 self.assertEqual(session.commands, [("unlock", {}), ("lock", {})])
+                self.assertEqual(tui.ACTIONS["status"].fields, ())
+                self.assertEqual(tui.ACTIONS["info"].fields, ())
+                self.assertEqual(tui.ACTIONS["device-info"].fields, ())
+                self.assertEqual(
+                    tuple(field.name for field in tui.ACTIONS["get-errors"].fields),
+                    ("query",),
+                )
+                status_index = actions.get_option_index("status")
+                actions.highlighted = status_index
+                actions.focus()
+                await pilot.press("enter")
+                await pilot.pause()
+                self.assertIs(app.focused, actions)
+                self.assertEqual(actions.highlighted, status_index)
+                self.assertEqual(session.commands[-1], ("status", {}))
+                result_panel = app.query_one("#result-panel")
+                self.assertGreater(
+                    result_panel.region.x, actions.region.x + actions.region.width
+                )
+                self.assertEqual(result_panel.region.height, actions.region.height)
                 session.connected = False
                 app._check_connection()
                 self.assertTrue(actions.disabled)

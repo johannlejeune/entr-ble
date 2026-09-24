@@ -1,12 +1,12 @@
 import asyncio
 from typing import ClassVar
 
-from textual import on, work
+from textual import events, on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container, Grid, Horizontal, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Label, LoadingIndicator, OptionList, Static
+from textual.widgets import Button, Input, Label, OptionList, Static
 from textual.widgets.option_list import Option
 
 from ._discovery import ScanItem, discover
@@ -112,12 +112,18 @@ class EntrBleApp(App[None], inherit_bindings=False):
     Button { width: auto; min-width: 0; height: 3; border: none; background: $surface-lighten-1; padding: 1 2; }
     Button:hover { background: $surface-lighten-2; }
     Button.-style-default:focus { background: $surface-lighten-3; background-tint: transparent; text-style: bold; }
+    #scan-row Button { padding: 1 1; }
     #scan-row, #connection-actions { height: 3; margin-bottom: 1; }
     #connection-status, #lock-status { height: auto; min-height: 1; margin-bottom: 1; }
-    #loading { display: none; width: 12; height: 3; }
-    #scan-results, #actions { height: 1fr; border: none; background: $surface; padding: 1 1; }
+    #loading { display: none; width: 3; height: 3; margin-left: 1; content-align: center middle; color: $primary; }
+    #scan-results, #actions { height: 1fr; border: none; background: $surface; padding: 1 2; }
     #scan-results:focus, #actions:focus { background: $surface-lighten-1; background-tint: transparent; }
-    #result-panel { height: 4; border: none; padding: 1 1; }
+    #dashboard-main { height: 1fr; layout: horizontal; }
+    #actions { width: 36; }
+    #result-panel { display: none; width: 1fr; height: 1fr; margin-left: 1; border: none; background: $surface; padding: 1 2; }
+    #dashboard-main.narrow { layout: vertical; }
+    #dashboard-main.narrow #actions { width: 100%; }
+    #dashboard-main.narrow #result-panel { width: 100%; margin-left: 0; margin-top: 1; }
     ActionForm, Confirmation { align: center middle; }
     #action-form, #confirmation { grid-size: 2; grid-gutter: 0 1; width: 90%; max-width: 60; height: auto; max-height: 90%; overflow-y: auto; padding: 1; background: $surface; }
     #form-title { column-span: 2; text-style: bold; }
@@ -136,6 +142,7 @@ class EntrBleApp(App[None], inherit_bindings=False):
         self._scanning = False
         self._scan_generation = 0
         self._connecting = False
+        self._loading_frame = 0
         self._session_lock = asyncio.Lock()
 
     def compose(self) -> ComposeResult:
@@ -153,24 +160,31 @@ class EntrBleApp(App[None], inherit_bindings=False):
             with Horizontal(id="scan-row"):
                 yield Button("Scan", id="scan")
                 yield Button("Show all devices", id="toggle-all")
-            yield LoadingIndicator(id="loading")
+                yield Static("⠋", id="loading")
             yield OptionList(id="scan-results")
         with Container(id="dashboard"):
             yield Static("", id="lock-status")
             with Horizontal(id="connection-actions"):
                 yield Button("Change lock", id="disconnect")
                 yield Button("Reconnect", id="reconnect")
-            yield OptionList(id="actions")
-            with VerticalScroll(id="result-panel"):
-                yield Static("", id="result")
+            with Horizontal(id="dashboard-main"):
+                yield OptionList(id="actions")
+                with VerticalScroll(id="result-panel"):
+                    yield Static("", id="result")
 
     def on_mount(self) -> None:
         self.set_interval(1, self._check_connection)
+        self.set_interval(0.12, self._animate_loading)
+        self._layout_dashboard(self.size.width)
         self.query_one("#address", Input).focus()
         if self.address:
             self.connect_lock(self.address)
         else:
             self.scan_devices()
+
+    def on_resize(self, event: events.Resize) -> None:
+        if self.query("#dashboard-main"):
+            self._layout_dashboard(event.size.width)
 
     @on(Input.Submitted, "#address")
     def address_submitted(self, event: Input.Submitted) -> None:
@@ -190,7 +204,7 @@ class EntrBleApp(App[None], inherit_bindings=False):
     def toggle_all(self) -> None:
         self.show_all = not self.show_all
         self.query_one("#toggle-all", Button).label = (
-            "Hide unrelated devices" if self.show_all else "Show all devices"
+            "Hide unrelated" if self.show_all else "Show all devices"
         )
         self._render_scan()
 
@@ -332,10 +346,14 @@ class EntrBleApp(App[None], inherit_bindings=False):
         except Exception as exc:  # noqa: BLE001
             self._set_result(f"{action.label} failed:\n{exc}")
         else:
-            self._show_actions()
+            if action in SETUP_ACTIONS:
+                self._show_actions()
             self._set_result("\n".join(lines) or f"{action.label} completed.")
         finally:
             self._set_busy(False)
+            options = self.query_one("#actions", OptionList)
+            if not options.disabled:
+                options.focus()
 
     @on(Button.Pressed, "#disconnect")
     def disconnect_button(self) -> None:
@@ -388,7 +406,21 @@ class EntrBleApp(App[None], inherit_bindings=False):
         self.query_one(target, Static).update(message)
 
     def _set_loading(self, loading: bool) -> None:
-        self.query_one("#loading", LoadingIndicator).display = loading
+        indicator = self.query_one("#loading", Static)
+        indicator.display = loading
+        if loading:
+            self._loading_frame = 0
+            indicator.update("⠋")
+
+    def _animate_loading(self) -> None:
+        indicators = self.query("#loading")
+        if not indicators:
+            return
+        indicator = indicators.first(Static)
+        if indicator.display:
+            frames = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+            self._loading_frame = (self._loading_frame + 1) % len(frames)
+            indicator.update(frames[self._loading_frame])
 
     def _show_discovery(self) -> None:
         self.query_one("#dashboard").display = False
@@ -403,7 +435,11 @@ class EntrBleApp(App[None], inherit_bindings=False):
         self.query_one("#actions", OptionList).focus()
 
     def _set_result(self, message: str) -> None:
+        self.query_one("#result-panel").display = bool(message)
         self.query_one("#result", Static).update(message)
+
+    def _layout_dashboard(self, width: int) -> None:
+        self.query_one("#dashboard-main").set_class(width < 90, "narrow")
 
     def _set_busy(self, busy: bool) -> None:
         self.busy = busy

@@ -130,26 +130,13 @@ ACTION_GROUPS = (
     (
         "Information",
         (
-            Action(
-                "status", "Status", (Field("raw", "Show raw response (yes/no)", "no"),)
-            ),
-            Action(
-                "info",
-                "Lock information",
-                (Field("raw", "Show raw response (yes/no)", "no"),),
-            ),
-            Action(
-                "device-info",
-                "Device information",
-                (Field("raw", "Show raw response (yes/no)", "no"),),
-            ),
+            Action("status", "Status"),
+            Action("info", "Lock information"),
+            Action("device-info", "Device information"),
             Action(
                 "get-errors",
                 "Error log",
-                (
-                    Field("query", "Query hex", "0000000000000000"),
-                    Field("raw", "Show raw response (yes/no)", "no"),
-                ),
+                (Field("query", "Query hex", "0000000000000000"),),
             ),
             Action(
                 "audit-trail",
@@ -215,7 +202,7 @@ def normalize_values(values: dict[str, str]) -> dict[str, object]:
                 raise ValueError(
                     f"{key.replace('_', ' ').capitalize()} must be a whole number."
                 ) from exc
-        elif key == "sync_time" or key == "raw":
+        elif key == "sync_time":
             result[key] = _boolean_value(key, value)
         elif key in choices:
             if value not in choices[key]:
