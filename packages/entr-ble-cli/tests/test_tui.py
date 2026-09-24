@@ -42,6 +42,28 @@ class FailingSession(FakeSession):
 
 
 class TuiTests(unittest.IsolatedAsyncioTestCase):
+    async def test_controls_have_visible_background_and_focus(self):
+        with patch.object(tui, "discover", AsyncMock(return_value=[])):
+            app = tui.EntrBleApp()
+            async with app.run_test() as pilot:
+                button = app.query_one("#scan", Button)
+                idle_background = button.styles.background
+                self.assertGreater(idle_background.a, 0)
+                button.focus()
+                await pilot.pause()
+                self.assertNotEqual(button.styles.background, idle_background)
+                self.assertNotIn("reverse", str(button.styles.text_style))
+                address = app.query_one("#address", Input)
+                address.focus()
+                await pilot.pause()
+                input_focus_background = address.styles.background
+                options = app.query_one("#scan-results", OptionList)
+                idle_background = options.styles.background
+                options.focus()
+                await pilot.pause()
+                self.assertNotEqual(options.styles.background, idle_background)
+                self.assertEqual(options.styles.background, input_focus_background)
+
     async def test_connection_error_clears_progress(self):
         with (
             patch.object(tui, "discover", AsyncMock(return_value=[])),

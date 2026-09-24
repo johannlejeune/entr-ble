@@ -109,12 +109,14 @@ class EntrBleApp(App[None], inherit_bindings=False):
     Input { height: 3; border: none; background: $surface; padding: 1 2; }
     Input:focus { background: $surface-lighten-1; }
     #address { width: 100%; }
-    Button { width: auto; min-width: 0; height: 3; border: none; background: transparent; padding: 1 2; }
-    Button:focus { background: $surface; }
+    Button { width: auto; min-width: 0; height: 3; border: none; background: $surface-lighten-1; padding: 1 2; }
+    Button:hover { background: $surface-lighten-2; }
+    Button.-style-default:focus { background: $surface-lighten-3; background-tint: transparent; text-style: bold; }
     #scan-row, #connection-actions { height: 3; }
     #connection-status, #lock-status { height: auto; min-height: 1; margin-bottom: 1; }
     #loading { display: none; width: 12; height: 3; }
     #scan-results, #actions { height: 1fr; border: none; background: transparent; padding: 1 1; }
+    #scan-results:focus, #actions:focus { background: $surface-lighten-1; background-tint: transparent; }
     #result-panel { height: 4; border: none; padding: 1 1; }
     ActionForm, Confirmation { align: center middle; }
     #action-form, #confirmation { grid-size: 2; grid-gutter: 0 1; width: 90%; max-width: 60; height: auto; max-height: 90%; overflow-y: auto; padding: 1; background: $surface; }
