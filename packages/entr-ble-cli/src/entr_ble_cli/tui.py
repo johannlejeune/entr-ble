@@ -104,22 +104,22 @@ class EntrBleApp(App[None], inherit_bindings=False):
     CSS = """
     Screen { layout: vertical; }
     #title { height: 1; padding: 0 2; text-style: bold; }
-    #discovery, #dashboard { height: 1fr; padding: 1 2; }
+    #discovery, #dashboard { height: 1fr; padding: 1 3; }
     #dashboard { display: none; }
-    Input { height: 1; border: none; background: $surface; padding: 0 1; }
+    Input { height: 3; border: none; background: $surface; padding: 1 2; }
     Input:focus { background: $surface-lighten-1; }
     #address { width: 100%; }
-    Button { width: auto; min-width: 0; height: 1; border: none; background: transparent; padding: 0 1; }
+    Button { width: auto; min-width: 0; height: 3; border: none; background: transparent; padding: 1 2; }
     Button:focus { background: $surface; }
-    #scan-row, #connection-actions { height: 1; }
-    #connection-status, #lock-status { height: auto; min-height: 1; }
+    #scan-row, #connection-actions { height: 3; }
+    #connection-status, #lock-status { height: auto; min-height: 1; margin-bottom: 1; }
     #loading { display: none; width: 12; height: 3; }
-    #scan-results, #actions { height: 1fr; border: none; background: transparent; }
-    #result-panel { height: 4; border: none; }
-    #result { padding: 0 1; }
+    #scan-results, #actions { height: 1fr; border: none; background: transparent; padding: 1 1; }
+    #result-panel { height: 4; border: none; padding: 1 1; }
     ActionForm, Confirmation { align: center middle; }
     #action-form, #confirmation { grid-size: 2; grid-gutter: 0 1; width: 90%; max-width: 60; height: auto; max-height: 90%; overflow-y: auto; padding: 1; background: $surface; }
     #form-title { column-span: 2; text-style: bold; }
+    #action-form Input, #action-form Button, #confirmation Button { height: 1; padding: 0 1; }
     #action-form Horizontal, #confirmation Horizontal { column-span: 2; align-horizontal: right; }
     #confirmation { grid-size: 1; }
     """
@@ -145,7 +145,7 @@ class EntrBleApp(App[None], inherit_bindings=False):
             )
             yield Input(
                 self.address or "",
-                placeholder="Bluetooth address · Enter to connect",
+                placeholder="Address · Enter to connect",
                 id="address",
             )
             with Horizontal(id="scan-row"):
