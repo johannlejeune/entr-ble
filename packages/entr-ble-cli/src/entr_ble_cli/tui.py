@@ -18,6 +18,7 @@ class Field:
     label: str
     default: str = ""
     password: bool = False
+    required: bool = True
 
 
 @dataclass(frozen=True)
@@ -46,7 +47,7 @@ SETUP_ACTIONS = (
         "Claim owner slot",
         (
             Field("admin_code", "Owner password", password=True),
-            Field("name", "Lock name (optional)"),
+            Field("name", "Lock name (optional)", required=False),
         ),
         True,
     ),
@@ -77,7 +78,7 @@ ACTION_GROUPS = (
                     Field("name", "User name"),
                     Field("role", "Role", "user"),
                     Field("expiration", "Key expiry in hours", "3"),
-                    Field("code", "Key code (optional)"),
+                    Field("code", "Key code (optional)", required=False),
                 ),
             ),
             Action(
@@ -122,7 +123,7 @@ ACTION_GROUPS = (
                 (
                     Field("old_code", "Current admin code", password=True),
                     Field("new_code", "New admin code", password=True),
-                    Field("name", "Lock name (optional)"),
+                    Field("name", "Lock name (optional)", required=False),
                 ),
             ),
             Action(
@@ -130,9 +131,9 @@ ACTION_GROUPS = (
                 "Update settings",
                 (
                     Field("admin_code", "Admin code", password=True),
-                    Field("volume", "Volume: high, medium, low, muted"),
-                    Field("auto_lock", "Auto-lock: on, off"),
-                    Field("name", "Lock name (optional)"),
+                    Field("volume", "Volume: high, medium, low, muted", required=False),
+                    Field("auto_lock", "Auto-lock: on, off", required=False),
+                    Field("name", "Lock name (optional)", required=False),
                 ),
             ),
         ),
@@ -164,7 +165,7 @@ ACTION_GROUPS = (
             Action(
                 "audit-trail",
                 "Audit trail",
-                (Field("admin_code", "Admin code (optional)"),),
+                (Field("admin_code", "Admin code (optional)", required=False),),
             ),
         ),
     ),
@@ -220,6 +221,10 @@ class ActionForm(ModalScreen[dict[str, str] | None]):
             field.name: self.query_one(f"#field-{field.name}", Input).value.strip()
             for field in self.action.fields
         }
+        for field in self.action.fields:
+            if field.required and not values[field.name]:
+                self.notify(f"{field.label} is required.", severity="warning")
+                return
         self.dismiss(values)
 
     @on(Button.Pressed, "#cancel-action")
@@ -344,6 +349,7 @@ class EntrBleApp(App[None]):
     async def connect_lock(self, address: str) -> None:
         async with self._session_lock:
             await self._close_session()
+            await self._clear_actions()
             self._set_connection_status(f"Connecting to {address}…")
             session = LockSession(address)
             try:
@@ -415,8 +421,8 @@ class EntrBleApp(App[None]):
         except Exception as exc:  # noqa: BLE001
             self._set_result(f"{action.label} failed:\n{exc}")
         else:
-            self._set_result("\n".join(lines) or f"{action.label} completed.")
             await self._show_actions()
+            self._set_result("\n".join(lines) or f"{action.label} completed.")
         finally:
             self._set_busy(False)
 

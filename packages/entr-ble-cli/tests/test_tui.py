@@ -3,7 +3,7 @@ from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 from entr_ble_cli import tui
-from textual.widgets import OptionList
+from textual.widgets import OptionList, Static
 
 
 class FakeSession:
@@ -60,6 +60,9 @@ class TuiTests(unittest.IsolatedAsyncioTestCase):
                 await pilot.pause()
                 session = FakeSession.instances[0]
                 await app.run_lock_action(tui.ACTIONS["unlock"], {}).wait()
+                self.assertEqual(
+                    str(app.query_one("#result", Static).content), "unlock sent"
+                )
                 await app.run_lock_action(tui.ACTIONS["lock"], {}).wait()
                 self.assertEqual(session.connect_count, 1)
                 self.assertEqual(session.commands, [("unlock", {}), ("lock", {})])
