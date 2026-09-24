@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Command-line interface for ENTR Bluetooth locks"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = ["entr-ble==0.1.0"]
+dependencies = [
+    "entr-ble==0.1.0",
+    "textual>=8.0.0",
+]
 
 [project.scripts]
 entr-ble = "entr_ble_cli:main"
