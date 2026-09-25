@@ -14,6 +14,7 @@ class EntrLock(RestoreEntity, LockEntity):
     _attr_should_poll = False
 
     def __init__(self, entry):
+        self._entry = entry
         self._device = entry.runtime_data
         address = entry.data[CONF_ADDRESS]
         self._attr_unique_id = f"{address}_lock"
@@ -36,6 +37,9 @@ class EntrLock(RestoreEntity, LockEntity):
             self._attr_is_locked = restored.state == LockState.LOCKED
         self._update_state()
         self.async_on_remove(self._device.add_listener(self._update_state))
+        self._entry.async_create_background_task(
+            self.hass, self._device.async_read_status(), "entr_ble_initial_status"
+        )
 
     @override
     async def async_lock(self, **kwargs):
@@ -46,9 +50,9 @@ class EntrLock(RestoreEntity, LockEntity):
         await self._device.async_unlock()
 
     def _update_state(self):
-        if self._device.last_command_locked is not None:
-            self._attr_is_locked = self._device.last_command_locked
-            self.async_write_ha_state()
+        if self._device.locked is not None:
+            self._attr_is_locked = self._device.locked
+        self.async_write_ha_state()
 
 
 async def async_setup_entry(_hass, entry, async_add_entities):

@@ -12,6 +12,7 @@ from homeassistant.components.sensor import RestoreSensor
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.restore_state import RestoreEntity
 
+from entr_ble.client.fields import decode_status
 from entr_ble.const import MANUFACTURER_PRODUCT_ID
 
 bluetooth = ModuleType("homeassistant.components.bluetooth")
@@ -82,6 +83,9 @@ class FakeClient:
     async def lock(self, *_args):
         self.calls.append("lock")
 
+    async def unlock(self, *_args):
+        self.calls.append("unlock")
+
 
 class HacsTests(unittest.IsolatedAsyncioTestCase):
     async def test_lock_can_be_commanded_before_first_bluetooth_contact(self):
@@ -96,13 +100,20 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         self,
     ):
         listeners = []
+        reads = []
         device = SimpleNamespace(
-            last_command_locked=None,
+            locked=None,
             add_listener=lambda listener: listeners.append(listener) or (lambda: None),
             async_lock=AsyncMock(),
             async_unlock=AsyncMock(),
+            async_sync=AsyncMock(),
+            async_read_status=AsyncMock(),
         )
-        entry = SimpleNamespace(data={CONF_ADDRESS: "AA:BB"}, runtime_data=device)
+        entry = SimpleNamespace(
+            data={CONF_ADDRESS: "AA:BB"},
+            runtime_data=device,
+            async_create_background_task=lambda _hass, task, _name: reads.append(task),
+        )
         lock = EntrLock(entry)
         with (
             patch.object(RestoreEntity, "async_added_to_hass", AsyncMock()),
@@ -116,13 +127,18 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         ):
             await lock.async_added_to_hass()
             self.assertTrue(lock.is_locked)
-            await EntrCommandButton(entry, "lock").async_press()
-            device.async_lock.assert_awaited_once()
-            device.last_command_locked = False
+            await reads[0]
+            device.async_read_status.assert_awaited_once()
+            self.assertTrue(lock.is_locked)
+            device.locked = False
             listeners[0]()
             self.assertFalse(lock.is_locked)
+            await EntrCommandButton(entry, "lock").async_press()
+            device.async_lock.assert_awaited_once()
             await EntrCommandButton(entry, "unlock").async_press()
             device.async_unlock.assert_awaited_once()
+            await EntrCommandButton(entry, "sync").async_press()
+            device.async_sync.assert_awaited_once()
 
     async def test_discovery_scans_once_and_lists_only_entr_locks(self):
         flow = config_flow.EntrConfigFlow()
@@ -262,10 +278,45 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(device.status)
         assert device.status is not None
         self.assertEqual(device.status["battery_percentage"], 73)
-        self.assertTrue(device.last_command_locked)
+        self.assertTrue(device.locked)
         self.assertEqual(
             FakeClient.instances[0].calls, ["connect", "kdf", "lock", "disconnect"]
         )
+
+    async def test_startup_read_and_sync_use_reported_state(self):
+        FakeClient.instances.clear()
+        credentials = {
+            CONF_ADDRESS: "AA:BB",
+            "kdf_id": 3,
+            "role": 0,
+            CONF_AES_KEY: "11" * 16,
+        }
+        device = api.EntrDevice(object(), credentials)
+        updates = []
+        device.add_listener(lambda: updates.append(device.status))
+        with patch.object(api, "EntrLockClient", FakeClient):
+            await device.async_read_status()
+            self.assertFalse(device.locked)
+            assert device.status is not None
+            self.assertEqual(device.status["battery_percentage"], 73)
+            await device.async_sync()
+            self.assertFalse(device.locked)
+        self.assertEqual(len(updates), 2)
+        self.assertEqual(
+            [client.calls for client in FakeClient.instances],
+            [["connect", "kdf", "disconnect"], ["connect", "kdf", "disconnect"]],
+        )
+
+    async def test_inaccessible_startup_read_keeps_restored_values(self):
+        device = api.EntrDevice(object(), {CONF_ADDRESS: "AA:BB"})
+        device.status = decode_status(0, 64, None)
+        with patch.object(
+            bluetooth, "async_ble_device_from_address", return_value=None
+        ):
+            await device.async_read_status()
+        assert device.status is not None
+        self.assertEqual(device.status["battery_percentage"], 64)
+        self.assertIsNone(device.locked)
 
 
 if __name__ == "__main__":

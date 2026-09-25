@@ -15,7 +15,7 @@ class EntrCommandButton(ButtonEntity):
         self._command = command
         address = entry.data[CONF_ADDRESS]
         self._attr_unique_id = f"{address}_{command}_button"
-        self._attr_name = f"Force {command}"
+        self._attr_name = "Sync" if command == "sync" else f"Force {command}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, address)},
             name=entry.data.get(CONF_LOCK_NAME) or "ENTR lock",
@@ -28,11 +28,17 @@ class EntrCommandButton(ButtonEntity):
     async def async_press(self):
         if self._command == "lock":
             await self._device.async_lock()
-        else:
+        elif self._command == "unlock":
             await self._device.async_unlock()
+        else:
+            await self._device.async_sync()
 
 
 async def async_setup_entry(_hass, entry, async_add_entities):
     async_add_entities(
-        [EntrCommandButton(entry, "lock"), EntrCommandButton(entry, "unlock")]
+        [
+            EntrCommandButton(entry, "lock"),
+            EntrCommandButton(entry, "unlock"),
+            EntrCommandButton(entry, "sync"),
+        ]
     )

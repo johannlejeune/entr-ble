@@ -23,7 +23,7 @@ class EntrDevice:
         self.hass = hass
         self.credentials = credentials
         self.status = None
-        self.last_command_locked = None
+        self.locked = None
         self._listeners = []
         self._lock = asyncio.Lock()
 
@@ -40,6 +40,15 @@ class EntrDevice:
 
     async def async_unlock(self):
         await self._async_execute("unlock")
+
+    async def async_read_status(self):
+        try:
+            await self._async_execute(None)
+        except HomeAssistantError:
+            pass
+
+    async def async_sync(self):
+        await self._async_execute(None)
 
     async def _async_execute(self, command):
         async with self._lock:
@@ -62,12 +71,15 @@ class EntrDevice:
                 )
                 if client.status is not None:
                     self.status = client.status
-                await getattr(client, command)(
-                    bytes.fromhex(self.credentials[CONF_USER_ID]),
-                    bytes.fromhex(self.credentials[CONF_APP_ID]),
-                    bytes.fromhex(self.credentials[CONF_BLE_EKEY]),
-                )
-                self.last_command_locked = command == "lock"
+                    if command is None:
+                        self.locked = client.status["locked"]
+                if command is not None:
+                    await getattr(client, command)(
+                        bytes.fromhex(self.credentials[CONF_USER_ID]),
+                        bytes.fromhex(self.credentials[CONF_APP_ID]),
+                        bytes.fromhex(self.credentials[CONF_BLE_EKEY]),
+                    )
+                    self.locked = command == "lock"
             except (BleakError, EntrProtocolError, OSError, TimeoutError) as err:
                 raise HomeAssistantError(
                     f"Unable to communicate with ENTR lock {address}"
