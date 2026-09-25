@@ -7,8 +7,10 @@ from typing import ClassVar, cast
 from unittest.mock import AsyncMock, Mock, patch
 
 from homeassistant import components
+from homeassistant.components.lock import LockState
 from homeassistant.components.sensor import RestoreSensor
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from entr_ble.const import MANUFACTURER_PRODUCT_ID
 
@@ -24,6 +26,7 @@ components.__dict__["bluetooth"] = bluetooth
 sys.modules[bluetooth.__name__] = bluetooth
 
 from custom_components.entr_ble import api, config_flow, provisioning
+from custom_components.entr_ble.button import EntrCommandButton
 from custom_components.entr_ble.const import CONF_ADDRESS, CONF_AES_KEY, CONF_ROLE
 from custom_components.entr_ble.lock import EntrLock
 from custom_components.entr_ble.sensor import EntrBattery
@@ -37,7 +40,7 @@ class FakeClient:
         self.timeout = timeout
         self.comm_version = "1.29r3"
         self.session = SimpleNamespace(key=b"\x11" * 16)
-        self.status = {"battery_percentage": 73}
+        self.status = {"battery_percentage": 73, "locked": False}
         self.calls = []
         self.instances.append(self)
 
@@ -88,6 +91,38 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(lock.available)
         await lock.async_lock()
         device.async_lock.assert_awaited_once()
+
+    async def test_lock_restores_last_command_and_force_buttons_ignore_displayed_state(
+        self,
+    ):
+        listeners = []
+        device = SimpleNamespace(
+            last_command_locked=None,
+            add_listener=lambda listener: listeners.append(listener) or (lambda: None),
+            async_lock=AsyncMock(),
+            async_unlock=AsyncMock(),
+        )
+        entry = SimpleNamespace(data={CONF_ADDRESS: "AA:BB"}, runtime_data=device)
+        lock = EntrLock(entry)
+        with (
+            patch.object(RestoreEntity, "async_added_to_hass", AsyncMock()),
+            patch.object(
+                lock,
+                "async_get_last_state",
+                AsyncMock(return_value=SimpleNamespace(state=LockState.LOCKED)),
+            ),
+            patch.object(lock, "async_on_remove"),
+            patch.object(lock, "async_write_ha_state"),
+        ):
+            await lock.async_added_to_hass()
+            self.assertTrue(lock.is_locked)
+            await EntrCommandButton(entry, "lock").async_press()
+            device.async_lock.assert_awaited_once()
+            device.last_command_locked = False
+            listeners[0]()
+            self.assertFalse(lock.is_locked)
+            await EntrCommandButton(entry, "unlock").async_press()
+            device.async_unlock.assert_awaited_once()
 
     async def test_discovery_scans_once_and_lists_only_entr_locks(self):
         flow = config_flow.EntrConfigFlow()
@@ -227,6 +262,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(device.status)
         assert device.status is not None
         self.assertEqual(device.status["battery_percentage"], 73)
+        self.assertTrue(device.last_command_locked)
         self.assertEqual(
             FakeClient.instances[0].calls, ["connect", "kdf", "lock", "disconnect"]
         )

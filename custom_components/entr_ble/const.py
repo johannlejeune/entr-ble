@@ -1,7 +1,7 @@
 from homeassistant.const import Platform
 
 DOMAIN = "entr_ble"
-PLATFORMS = [Platform.LOCK, Platform.SENSOR]
+PLATFORMS = [Platform.LOCK, Platform.BUTTON, Platform.SENSOR]
 
 CONF_ADDRESS = "address"
 CONF_APP_ID = "app_id"

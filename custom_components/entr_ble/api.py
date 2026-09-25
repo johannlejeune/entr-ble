@@ -23,6 +23,7 @@ class EntrDevice:
         self.hass = hass
         self.credentials = credentials
         self.status = None
+        self.last_command_locked = None
         self._listeners = []
         self._lock = asyncio.Lock()
 
@@ -66,6 +67,7 @@ class EntrDevice:
                     bytes.fromhex(self.credentials[CONF_APP_ID]),
                     bytes.fromhex(self.credentials[CONF_BLE_EKEY]),
                 )
+                self.last_command_locked = command == "lock"
             except (BleakError, EntrProtocolError, OSError, TimeoutError) as err:
                 raise HomeAssistantError(
                     f"Unable to communicate with ENTR lock {address}"
