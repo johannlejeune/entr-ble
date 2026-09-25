@@ -1,6 +1,7 @@
 from typing import override
 
 from homeassistant.components.button import ButtonEntity
+from homeassistant.const import EntityCategory
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import CONF_ADDRESS, CONF_LOCK_NAME, DOMAIN
@@ -15,7 +16,9 @@ class EntrCommandButton(ButtonEntity):
         self._command = command
         address = entry.data[CONF_ADDRESS]
         self._attr_unique_id = f"{address}_{command}_button"
-        self._attr_name = "Sync" if command == "sync" else f"Force {command}"
+        self._attr_name = command.capitalize()
+        if command == "sync":
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, address)},
             name=entry.data.get(CONF_LOCK_NAME) or "ENTR lock",

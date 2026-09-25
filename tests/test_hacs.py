@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from homeassistant import components
 from homeassistant.components.lock import LockState
 from homeassistant.components.sensor import RestoreSensor
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.restore_state import RestoreEntity
 
@@ -139,6 +140,12 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
             device.async_unlock.assert_awaited_once()
             await EntrCommandButton(entry, "sync").async_press()
             device.async_sync.assert_awaited_once()
+            self.assertEqual(EntrCommandButton(entry, "lock").name, "Lock")
+            self.assertEqual(EntrCommandButton(entry, "unlock").name, "Unlock")
+            self.assertEqual(
+                EntrCommandButton(entry, "sync").entity_category,
+                EntityCategory.DIAGNOSTIC,
+            )
 
     async def test_discovery_scans_once_and_lists_only_entr_locks(self):
         flow = config_flow.EntrConfigFlow()
