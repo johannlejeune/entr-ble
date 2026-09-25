@@ -22,7 +22,7 @@ from .const import (
 
 
 async def async_provision(hass, address, method, code, lock_name=None):
-    if method not in {"take_over", "initialize", "user_key"}:
+    if method not in {"initialize", "take_over", "user_key"}:
         raise ValueError(f"Unknown setup method: {method}")
     if len(code) != 6 or not code.isascii():
         raise ValueError("A six-character ASCII code is required")
@@ -45,13 +45,13 @@ async def async_provision(hass, address, method, code, lock_name=None):
         await client.fetch_comm_version()
         await client.pair()
         await client.handshake(app_id)
-        if method == "take_over":
-            result = await client.recover_owner(code, app_id)
-            user_id = result["user_id"]
-            role = ROLE_OWNER
-        elif method == "initialize":
+        if method == "initialize":
             user_id = user_id_bytes("homeassistant")
             result = await client.set_owner(code, app_id, user_id, encoded_name, 4)
+            role = ROLE_OWNER
+        elif method == "take_over":
+            result = await client.recover_owner(code, app_id)
+            user_id = result["user_id"]
             role = ROLE_OWNER
         else:
             result = await client.get_new_key(code, app_id)

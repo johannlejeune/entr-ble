@@ -100,7 +100,30 @@ class EntrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_owner(self, user_input=None):
         return self.async_show_menu(
-            step_id="owner", menu_options=["take_over", "initialize"]
+            step_id="owner", menu_options=["initialize", "take_over"]
+        )
+
+    async def async_step_initialize(self, user_input=None):
+        errors = {}
+        if user_input is not None:
+            code = user_input["admin_code"]
+            lock_name = user_input[CONF_LOCK_NAME].strip()
+            if len(code) != 6 or not lock_name:
+                errors["base"] = "invalid_input"
+            else:
+                data, error = await self._async_provision("initialize", code, lock_name)
+                if data is not None:
+                    return self.async_create_entry(title=lock_name, data=data)
+                errors["base"] = error
+        return self.async_show_form(
+            step_id="initialize",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("admin_code"): _PASSWORD,
+                    vol.Required(CONF_LOCK_NAME): str,
+                }
+            ),
+            errors=errors,
         )
 
     async def async_step_take_over(self, user_input=None):
@@ -124,29 +147,6 @@ class EntrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required("admin_code"): _PASSWORD,
                     vol.Required("confirm_take_over", default=False): bool,
-                }
-            ),
-            errors=errors,
-        )
-
-    async def async_step_initialize(self, user_input=None):
-        errors = {}
-        if user_input is not None:
-            code = user_input["admin_code"]
-            lock_name = user_input[CONF_LOCK_NAME].strip()
-            if len(code) != 6 or not lock_name:
-                errors["base"] = "invalid_input"
-            else:
-                data, error = await self._async_provision("initialize", code, lock_name)
-                if data is not None:
-                    return self.async_create_entry(title=lock_name, data=data)
-                errors["base"] = error
-        return self.async_show_form(
-            step_id="initialize",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("admin_code"): _PASSWORD,
-                    vol.Required(CONF_LOCK_NAME): str,
                 }
             ),
             errors=errors,

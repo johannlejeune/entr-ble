@@ -48,23 +48,12 @@
       "owner": {
         "title": "Owner setup",
         "menu_options": {
-          "take_over": "Replace the current owner",
-          "initialize": "Initialize a new lock"
+          "initialize": "Initialize a new lock",
+          "take_over": "Replace the current owner"
         },
         "menu_option_descriptions": {
-          "take_over": "Use the current owner admin code. This replaces the mobile app's owner credential.",
-          "initialize": "Use this only when the lock has never had an owner."
-        }
-      },
-      "take_over": {
-        "title": "Replace the current owner",
-        "description": "Home Assistant will take the only owner slot. The current mobile owner will lose access after this succeeds.",
-        "data": {
-          "admin_code": "Owner admin code",
-          "confirm_take_over": "I understand the mobile owner will lose access"
-        },
-        "data_description": {
-          "admin_code": "Six-character code for the current owner."
+          "initialize": "Use this only when the lock has never had an owner.",
+          "take_over": "Use the current owner admin code. This replaces the mobile app's owner credential."
         }
       },
       "initialize": {
@@ -76,6 +65,17 @@
         },
         "data_description": {
           "admin_code": "Choose a six-character code and keep it somewhere safe."
+        }
+      },
+      "take_over": {
+        "title": "Replace the current owner",
+        "description": "Home Assistant will take the only owner slot. The current mobile owner will lose access after this succeeds.",
+        "data": {
+          "admin_code": "Owner admin code",
+          "confirm_take_over": "I understand the mobile owner will lose access"
+        },
+        "data_description": {
+          "admin_code": "Six-character code for the current owner."
         }
       },
       "user_key": {

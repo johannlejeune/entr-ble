@@ -158,6 +158,10 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         ):
             result = await flow.async_step_manual({CONF_ADDRESS: "aa:bb"})
         self.assertEqual(result.get("menu_options"), ["owner", "user_key"])
+        self.assertEqual(
+            (await flow.async_step_owner()).get("menu_options"),
+            ["initialize", "take_over"],
+        )
         result = await flow.async_step_take_over(
             {"admin_code": "123456", "confirm_take_over": False}
         )
