@@ -14,7 +14,6 @@ class EntrLock(LockEntity):
 
     def __init__(self, entry):
         self._device = entry.runtime_data
-        self._attr_available = self._device.available
         address = entry.data[CONF_ADDRESS]
         self._attr_unique_id = f"{address}_lock"
         self._attr_device_info = DeviceInfo(
@@ -26,20 +25,12 @@ class EntrLock(LockEntity):
         )
 
     @override
-    async def async_added_to_hass(self):
-        self.async_on_remove(self._device.add_listener(self._update_state))
-
-    @override
     async def async_lock(self, **kwargs):
         await self._device.async_lock()
 
     @override
     async def async_unlock(self, **kwargs):
         await self._device.async_unlock()
-
-    def _update_state(self):
-        self._attr_available = self._device.available
-        self.async_write_ha_state()
 
 
 async def async_setup_entry(_hass, entry, async_add_entities):
