@@ -7,7 +7,7 @@ from typing import ClassVar, cast
 from unittest.mock import AsyncMock, Mock, patch
 
 from homeassistant import components
-from homeassistant.components.lock import LockState
+from homeassistant.components.lock import LockEntityFeature, LockState
 from homeassistant.components.sensor import RestoreSensor
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
@@ -134,10 +134,13 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
             device.locked = False
             listeners[0]()
             self.assertFalse(lock.is_locked)
+            self.assertTrue(lock.supported_features & LockEntityFeature.OPEN)
+            await lock.async_open()
+            device.async_unlock.assert_awaited_once()
             await EntrCommandButton(entry, "lock").async_press()
             device.async_lock.assert_awaited_once()
             await EntrCommandButton(entry, "unlock").async_press()
-            device.async_unlock.assert_awaited_once()
+            self.assertEqual(device.async_unlock.await_count, 2)
             await EntrCommandButton(entry, "sync").async_press()
             device.async_sync.assert_awaited_once()
             self.assertEqual(EntrCommandButton(entry, "lock").name, "Lock")

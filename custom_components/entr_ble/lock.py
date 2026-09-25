@@ -1,6 +1,6 @@
 from typing import override
 
-from homeassistant.components.lock import LockEntity, LockState
+from homeassistant.components.lock import LockEntity, LockEntityFeature, LockState
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
 
@@ -12,6 +12,7 @@ class EntrLock(RestoreEntity, LockEntity):
     _attr_name = None
     _attr_is_locked = None
     _attr_should_poll = False
+    _attr_supported_features = LockEntityFeature.OPEN
 
     def __init__(self, entry):
         self._entry = entry
@@ -48,6 +49,10 @@ class EntrLock(RestoreEntity, LockEntity):
     @override
     async def async_unlock(self, **kwargs):
         await self._device.async_unlock()
+
+    @override
+    async def async_open(self, **kwargs):
+        await self.async_unlock(**kwargs)
 
     def _update_state(self):
         if self._device.locked is not None:
