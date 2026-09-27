@@ -1,10 +1,10 @@
 from typing import override
 
 from homeassistant.components.lock import LockEntity, LockEntityFeature, LockState
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import CONF_ADDRESS, CONF_LOCK_NAME, DOMAIN
+from .const import CONF_ADDRESS
+from .entity import device_info
 
 
 class EntrLock(RestoreEntity, LockEntity):
@@ -19,13 +19,7 @@ class EntrLock(RestoreEntity, LockEntity):
         self._device = entry.runtime_data
         address = entry.data[CONF_ADDRESS]
         self._attr_unique_id = f"{address}_lock"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, address)},
-            name=entry.data.get(CONF_LOCK_NAME) or "ENTR lock",
-            connections={("bluetooth", address)},
-            manufacturer="ASSA ABLOY",
-            model="ENTR",
-        )
+        self._attr_device_info = device_info(entry)
 
     @override
     async def async_added_to_hass(self):

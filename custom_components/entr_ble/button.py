@@ -2,9 +2,9 @@ from typing import override
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.const import EntityCategory
-from homeassistant.helpers.device_registry import DeviceInfo
 
-from .const import CONF_ADDRESS, CONF_LOCK_NAME, DOMAIN
+from .const import CONF_ADDRESS
+from .entity import device_info
 
 
 class EntrCommandButton(ButtonEntity):
@@ -19,13 +19,7 @@ class EntrCommandButton(ButtonEntity):
         self._attr_name = command.capitalize()
         if command == "sync":
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, address)},
-            name=entry.data.get(CONF_LOCK_NAME) or "ENTR lock",
-            connections={("bluetooth", address)},
-            manufacturer="ASSA ABLOY",
-            model="ENTR",
-        )
+        self._attr_device_info = device_info(entry)
 
     @override
     async def async_press(self):
