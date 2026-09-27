@@ -46,7 +46,7 @@ class LockSession:
                     await self.client.kdf_resync(
                         creds.kdf_id, creds.role, bytes.fromhex(creds.aes_key)
                     )
-            except Exception:
+            except BaseException:
                 await self.client.disconnect()
                 raise
 

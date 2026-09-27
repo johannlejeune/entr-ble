@@ -1,6 +1,7 @@
 import asyncio
 from typing import ClassVar
 
+from rich.text import Text
 from textual import events, on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
@@ -151,6 +152,7 @@ class EntrBleApp(App[None], inherit_bindings=False):
             yield Static(
                 "Choose a nearby lock or enter its Bluetooth address.",
                 id="connection-status",
+                markup=False,
             )
             yield Input(
                 self.address or "",
@@ -163,14 +165,14 @@ class EntrBleApp(App[None], inherit_bindings=False):
                 yield Static("⠋", id="loading")
             yield OptionList(id="scan-results")
         with Container(id="dashboard"):
-            yield Static("", id="lock-status")
+            yield Static("", id="lock-status", markup=False)
             with Horizontal(id="connection-actions"):
                 yield Button("Change lock", id="disconnect")
                 yield Button("Reconnect", id="reconnect")
             with Horizontal(id="dashboard-main"):
                 yield OptionList(id="actions")
                 with VerticalScroll(id="result-panel"):
-                    yield Static("", id="result")
+                    yield Static("", id="result", markup=False)
 
     def on_mount(self) -> None:
         self.set_interval(1, self._check_connection)
@@ -251,7 +253,9 @@ class EntrBleApp(App[None], inherit_bindings=False):
         options = self.query_one("#scan-results", OptionList)
         options.clear_options()
         visible = [item for item in self._scan_items if item.is_lock or self.show_all]
-        options.add_options(Option(item.label, id=item.address) for item in visible)
+        options.add_options(
+            Option(Text(item.label), id=item.address) for item in visible
+        )
         locks = sum(item.is_lock for item in self._scan_items)
         others = len(self._scan_items) - locks
         detail = f"{others} other devices" if self.show_all else f"{others} hidden"
@@ -277,6 +281,7 @@ class EntrBleApp(App[None], inherit_bindings=False):
                 self.session = session
                 self._show_actions()
                 self._show_dashboard()
+                self._set_busy(False)
                 self._set_result("")
                 self._set_connection_status(f"Connected to {address}")
             except Exception as exc:  # noqa: BLE001
@@ -328,6 +333,8 @@ class EntrBleApp(App[None], inherit_bindings=False):
 
     @work(group="commands")
     async def run_lock_action(self, action: Action, kwargs: dict[str, object]) -> None:
+        if self.busy:
+            return
         session = self.session
         if session is None or not session.connected:
             self._set_result(
@@ -346,7 +353,7 @@ class EntrBleApp(App[None], inherit_bindings=False):
         except Exception as exc:  # noqa: BLE001
             self._set_result(f"{action.label} failed:\n{exc}")
         else:
-            if action in SETUP_ACTIONS:
+            if action in SETUP_ACTIONS or action.command == "factory-reset":
                 self._show_actions()
             self._set_result("\n".join(lines) or f"{action.label} completed.")
         finally:

@@ -253,6 +253,27 @@ class TuiTests(unittest.IsolatedAsyncioTestCase):
                 session.connected = False
                 app._check_connection()
                 self.assertTrue(actions.disabled)
+                await app.connect_lock(session.address).wait()
+                self.assertFalse(actions.disabled)
+                self.assertTrue(app.session.connected)
+
+    async def test_factory_reset_returns_to_setup_actions(self):
+        with (
+            patch.object(tui, "LockSession", FakeSession),
+        ):
+            app = tui.EntrBleApp("AA")
+            async with app.run_test() as pilot:
+                await pilot.pause()
+
+                async def reset(*_args, **_kwargs):
+                    app.session.credentials = None
+                    return ["factory reset done"]
+
+                app.session.run = reset
+                await app.run_lock_action(tui.ACTIONS["factory-reset"], {}).wait()
+                actions = app.query_one("#actions", OptionList)
+                self.assertIsNotNone(actions.get_option("set-owner"))
+                self.assertEqual(actions.option_count, len(tui.SETUP_ACTIONS) + 1)
 
 
 if __name__ == "__main__":

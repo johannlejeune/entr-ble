@@ -35,6 +35,19 @@ class FakeClient:
 
 
 class LockSessionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cancelled_handshake_closes_connection(self):
+        fake = FakeClient("AA")
+        with (
+            patch.object(workflows, "EntrLockClient", return_value=fake),
+            patch.object(workflows, "get_credentials", return_value=None),
+        ):
+            session = workflows.LockSession("AA")
+            fake.fetch_comm_version = AsyncMock(side_effect=asyncio.CancelledError)
+            with self.assertRaises(asyncio.CancelledError):
+                await session.connect()
+            self.assertFalse(session.connected)
+            self.assertEqual(fake.disconnect_count, 1)
+
     async def test_failed_handshake_closes_connection(self):
         fake = FakeClient("AA")
         with (
