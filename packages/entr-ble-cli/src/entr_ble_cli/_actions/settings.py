@@ -35,6 +35,7 @@ async def run(
             for flag, label in (
                 (auto_lock is not None, f"auto-lock {p.get('auto_lock')}"),
                 (volume is not None, f"volume {p.get('volume')}"),
+                (bool(p.get("name")), f"lock name {p.get('name')}"),
             )
             if flag
         ]

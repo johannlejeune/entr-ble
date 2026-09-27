@@ -1,9 +1,12 @@
+import argparse
 import asyncio
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from entr_ble_cli import workflows
+from entr_ble_cli._actions import maintenance, settings
+from entr_ble_cli.commands import common
 from entr_ble_cli.store import LockCredentials
 
 
@@ -35,6 +38,91 @@ class FakeClient:
 
 
 class LockSessionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_unlock_command_handler_uses_credentials_and_closes_connection(self):
+        creds = LockCredentials("AA", "01", "02", "03", 4, "04", "1.29r3")
+        fake = FakeClient("AA")
+        with (
+            patch.object(workflows, "EntrLockClient", return_value=fake),
+            patch.object(workflows, "get_credentials", return_value=creds),
+            patch("builtins.print") as output,
+        ):
+            await common.handle(argparse.Namespace(command="unlock", address="AA"))
+        fake.unlock.assert_awaited_once_with(b"\x02", b"\x01", b"\x03")
+        output.assert_called_once_with("unlock sent")
+        self.assertEqual(fake.connect_count, 1)
+        self.assertEqual(fake.disconnect_count, 1)
+
+    async def test_settings_preserve_unspecified_state_and_accessory_metadata(self):
+        creds = LockCredentials(
+            "AA", "01", "02", "03", 4, "04", "1.29r3", lock_name="Front"
+        )
+        fake = FakeClient("AA")
+        fake.status_raw = 0xFA
+        fake.get_device_config = AsyncMock(
+            return_value={"wall_reader_status": 17, "integration_unit_status": 34}
+        )
+        fake.set_device_config = AsyncMock()
+        with (
+            patch.object(workflows, "EntrLockClient", return_value=fake),
+            patch.object(workflows, "get_credentials", return_value=creds),
+            patch.object(settings, "put_credentials") as save,
+        ):
+            async with workflows.LockSession("AA") as session:
+                lines = await session.run(
+                    "settings", admin_code="123456", volume="medium"
+                )
+        args = fake.set_device_config.await_args
+        self.assertEqual(args.args[:4], (b"\x01", "123456", "123456", 3))
+        self.assertEqual(args.kwargs, {"niz_statuses": b"\x11\x22"})
+        self.assertEqual(lines, ["settings updated: volume medium"])
+        save.assert_not_called()
+
+    async def test_settings_save_changed_name_only_after_lock_accepts_it(self):
+        creds = LockCredentials(
+            "AA", "01", "02", "03", 4, "04", "1.29r3", lock_name="Front"
+        )
+        fake = FakeClient("AA")
+        fake.status_raw = 0
+        fake.get_device_config = AsyncMock(return_value={})
+        fake.set_device_config = AsyncMock(side_effect=RuntimeError("rejected"))
+        with (
+            patch.object(workflows, "EntrLockClient", return_value=fake),
+            patch.object(workflows, "get_credentials", return_value=creds),
+            patch.object(settings, "put_credentials") as save,
+        ):
+            async with workflows.LockSession("AA") as session:
+                with self.assertRaisesRegex(RuntimeError, "rejected"):
+                    await session.run("settings", admin_code="123456", name="Back")
+                self.assertEqual(creds.lock_name, "Front")
+                save.assert_not_called()
+                fake.set_device_config.side_effect = None
+                lines = await session.run("settings", admin_code="123456", name="Back")
+                self.assertEqual(creds.lock_name, "Back")
+                save.assert_called_once_with(creds)
+                self.assertEqual(lines, ["settings updated: lock name Back"])
+
+    async def test_factory_reset_removes_credentials_only_after_success(self):
+        creds = LockCredentials("AA", "01", "02", "03", 4, "04", "1.29r3")
+        fake = FakeClient("AA")
+        fake.factory_reset = AsyncMock(side_effect=RuntimeError("rejected"))
+        with (
+            patch.object(workflows, "EntrLockClient", return_value=fake),
+            patch.object(workflows, "get_credentials", return_value=creds),
+            patch.object(maintenance, "remove_credentials") as remove,
+        ):
+            async with workflows.LockSession("AA") as session:
+                with self.assertRaisesRegex(RuntimeError, "rejected"):
+                    await session.run("factory-reset", admin_code="123456")
+                self.assertIs(session.credentials, creds)
+                remove.assert_not_called()
+                fake.factory_reset.side_effect = None
+                lines = await session.run("factory-reset", admin_code="123456")
+                self.assertIsNone(session.credentials)
+                remove.assert_called_once_with("AA")
+                self.assertEqual(
+                    lines, ["factory reset done, local credentials removed"]
+                )
+
     async def test_cancelled_handshake_closes_connection(self):
         fake = FakeClient("AA")
         with (
