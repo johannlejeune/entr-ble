@@ -4,7 +4,7 @@ import sys
 
 from bleak.exc import BleakError
 
-from entr_ble.client import EntrLockError
+from entr_ble import EntrProtocolError
 
 from .commands import access, discovery, maintenance, settings, setup, status, users
 from .commands.common import CommandError
@@ -27,7 +27,7 @@ def main() -> None:
         parser.error("a command is required")
     try:
         asyncio.run(handlers[args.command](args))
-    except (CommandError, EntrLockError, BleakError, OSError, ValueError) as exc:
+    except (CommandError, EntrProtocolError, BleakError, OSError, ValueError) as exc:
         parser.exit(1, f"{exc}\n")
     except KeyboardInterrupt, EOFError:
         parser.exit(130, "Aborted.\n")
