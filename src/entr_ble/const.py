@@ -113,19 +113,6 @@ LOCK_STATE_NAMES = {
     LOCK_STATE_UNCALIBRATED: "initialized, uncalibrated",
 }
 
-# The lock name carries an encoding sign byte.
-ADVERT_NAME_ENCODINGS = {
-    65: "cp1256",  # Arabic
-    67: "gb18030",  # Chinese
-    69: "cp1250",  # Eastern Europe
-    70: "cp1252",  # French
-    72: "cp1255",  # Hebrew
-    76: "iso-8859-1",  # Latin
-    82: "cp1251",  # Russian
-    84: "cp1254",  # Turkish
-    94: "utf-8",
-}
-
 ADMIN_CODE_LENGTH = 6
 KEY_CODE_LENGTH = 6
 USER_ID_LENGTH = 16
@@ -174,17 +161,17 @@ CHECKSUM_OFFSET = 0xA0
 
 # Try these encodings in order; the first round-tripping candidate supplies the
 # sign byte at the start of the 16-byte lock name field.
-LOCK_NAME_ENCODINGS = (
-    ("cp1250", 69),  # E, Eastern Europe
-    ("cp1252", 70),  # F, French
-    ("cp1255", 72),  # H, Hebrew
-    ("cp1251", 82),  # R, Russian
-    ("gb18030", 67),  # C, Chinese
-    ("cp1254", 84),  # T, Turkish
-    ("cp1256", 65),  # A, Arabic
-    ("iso-8859-1", 76),  # L, Latin
-    ("utf-8", 94),  # ^
-)
+LOCK_NAME_ENCODINGS = {
+    69: "cp1250",  # E, Eastern Europe
+    70: "cp1252",  # F, French
+    72: "cp1255",  # H, Hebrew
+    82: "cp1251",  # R, Russian
+    67: "gb18030",  # C, Chinese
+    84: "cp1254",  # T, Turkish
+    65: "cp1256",  # A, Arabic
+    76: "iso-8859-1",  # L, Latin
+    94: "utf-8",  # ^
+}
 LOCK_NAME_MAX_BYTES = 12
 
 # Audit trail event codes for NIZ firmware.

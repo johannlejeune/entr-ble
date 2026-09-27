@@ -61,7 +61,7 @@ def build_lock_name(name: str) -> bytes:
     """
     sign = None
     encoded = b""
-    for codec, code in const.LOCK_NAME_ENCODINGS:
+    for code, codec in const.LOCK_NAME_ENCODINGS.items():
         try:
             candidate = name.encode(codec)
         except UnicodeEncodeError:

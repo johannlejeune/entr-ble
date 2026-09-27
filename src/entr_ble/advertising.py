@@ -59,7 +59,7 @@ def parse_advertisement(address: str, adv) -> LockAdvertisement | None:
 
 def _decode_name(encoding_byte: int, raw: bytes) -> str:
     # Use latin-1 for unknown encoding signs so every byte remains decodable.
-    encoding = const.ADVERT_NAME_ENCODINGS.get(encoding_byte, "latin-1")
+    encoding = const.LOCK_NAME_ENCODINGS.get(encoding_byte, "latin-1")
     try:
         return raw.strip(PADDING).decode(encoding, errors="replace")
     except LookupError:
