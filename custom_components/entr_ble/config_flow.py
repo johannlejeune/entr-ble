@@ -176,7 +176,7 @@ class EntrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 data = _credentials(user_input)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 errors["base"] = "invalid_credentials"
             else:
                 await self.async_set_unique_id(data[CONF_ADDRESS].lower())
