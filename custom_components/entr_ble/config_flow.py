@@ -257,7 +257,7 @@ def _credentials(user_input):
         if type(data[field]) is not int or not 0 <= data[field] <= 255:
             raise ValueError
     for field in (CONF_COMM_VERSION, CONF_LOCK_NAME):
-        if field in data and not isinstance(data[field], str):
+        if data.get(field) is not None and not isinstance(data[field], str):
             raise ValueError
     return {
         field: data[field]

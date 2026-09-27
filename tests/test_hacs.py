@@ -129,7 +129,12 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
             result = await flow.async_step_import_credentials(
                 {
                     CONF_ADDRESS: " aa:bb ",
-                    "credentials_json": json.dumps({"AA:BB": credentials}),
+                    "credentials_json": json.dumps(
+                        {
+                            "AA:BB": credentials
+                            | {CONF_ADDRESS: "AA:BB", "lock_name": None}
+                        }
+                    ),
                 }
             )
         self.assertEqual(result.get("data"), credentials | {CONF_ADDRESS: "AA:BB"})
