@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from types import ModuleType, SimpleNamespace
@@ -89,6 +90,48 @@ class FakeClient:
 
 
 class HacsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_import_credentials_validates_untrusted_json(self):
+        credentials = {
+            "app_id": "aa" * 16,
+            "user_id": "bb" * 16,
+            "ble_ekey": "cc" * 32,
+            "aes_key": "dd" * 16,
+            "kdf_id": 3,
+            "role": 2,
+        }
+        flow = config_flow.EntrConfigFlow()
+        for field, value in (
+            ("app_id", 123),
+            ("aes_key", [0] * 16),
+            ("aes_key", "dd " * 10 + "  "),
+            ("kdf_id", True),
+            ("role", 256),
+            ("lock_name", {"unexpected": "object"}),
+        ):
+            with self.subTest(field=field, value=value):
+                result = await flow.async_step_import_credentials(
+                    {
+                        CONF_ADDRESS: "AA:BB",
+                        "credentials_json": json.dumps(
+                            credentials | {CONF_ADDRESS: "AA:BB", field: value}
+                        ),
+                    }
+                )
+                self.assertEqual(result.get("errors"), {"base": "invalid_credentials"})
+
+        with (
+            patch.object(flow, "async_set_unique_id", AsyncMock()) as unique_id,
+            patch.object(flow, "_abort_if_unique_id_configured"),
+        ):
+            result = await flow.async_step_import_credentials(
+                {
+                    CONF_ADDRESS: " aa:bb ",
+                    "credentials_json": json.dumps({"AA:BB": credentials}),
+                }
+            )
+        self.assertEqual(result.get("data"), credentials | {CONF_ADDRESS: "AA:BB"})
+        unique_id.assert_awaited_once_with("aa:bb")
+
     async def test_lock_can_be_commanded_before_first_bluetooth_contact(self):
         device = SimpleNamespace(async_lock=AsyncMock(), async_unlock=AsyncMock())
         entry = SimpleNamespace(data={CONF_ADDRESS: "AA:BB"}, runtime_data=device)

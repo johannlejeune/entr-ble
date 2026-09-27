@@ -214,6 +214,10 @@ class EntrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 def _credentials(user_input):
     data = dict(user_input)
+    address = data.get(CONF_ADDRESS)
+    if not isinstance(address, str) or not address.strip():
+        raise ValueError
+    data[CONF_ADDRESS] = address.strip().upper()
     credentials_json = data.pop("credentials_json", "").strip()
     if credentials_json:
         parsed = json.loads(credentials_json)
@@ -241,19 +245,20 @@ def _credentials(user_input):
         field not in data or data[field] in (None, "") for field in _REQUIRED_FIELDS
     ):
         raise ValueError
-    data[CONF_ADDRESS] = data[CONF_ADDRESS].strip().upper()
-    if not data[CONF_ADDRESS]:
-        raise ValueError
     for field, length in _HEX_FIELDS.items():
-        value = data[field].strip().lower()
-        if len(value) != length * 2:
+        value = data[field]
+        if not isinstance(value, str):
             raise ValueError
-        bytes.fromhex(value)
-        data[field] = value
-    if not isinstance(data[CONF_KDF_ID], int) or not 0 <= data[CONF_KDF_ID] <= 255:
-        raise ValueError
-    if not isinstance(data[CONF_ROLE], int) or not 0 <= data[CONF_ROLE] <= 255:
-        raise ValueError
+        decoded = bytes.fromhex(value)
+        if len(decoded) != length:
+            raise ValueError
+        data[field] = decoded.hex()
+    for field in (CONF_KDF_ID, CONF_ROLE):
+        if type(data[field]) is not int or not 0 <= data[field] <= 255:
+            raise ValueError
+    for field in (CONF_COMM_VERSION, CONF_LOCK_NAME):
+        if field in data and not isinstance(data[field], str):
+            raise ValueError
     return {
         field: data[field]
         for field in (CONF_ADDRESS, *_FIELDS)
