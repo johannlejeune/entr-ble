@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 import unittest
@@ -7,11 +8,13 @@ from types import ModuleType, SimpleNamespace
 from typing import ClassVar, cast
 from unittest.mock import AsyncMock, Mock, patch
 
+from bleak.exc import BleakError
 from homeassistant import components
 from homeassistant.components.lock import LockEntityFeature, LockState
 from homeassistant.components.sensor import RestoreSensor
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from entr_ble.client.fields import decode_status
@@ -370,6 +373,55 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         assert device.status is not None
         self.assertEqual(device.status["battery_percentage"], 64)
         self.assertIsNone(device.locked)
+
+    async def test_failed_session_disconnects_without_changing_lock_state(self):
+        device = api.EntrDevice(
+            object(),
+            {CONF_ADDRESS: "AA:BB", "kdf_id": 3, "role": 0, CONF_AES_KEY: "11" * 16},
+        )
+        device.locked = False
+        listener = Mock()
+        device.add_listener(listener)
+        client = FakeClient(object(), 15)
+        with (
+            patch.object(api, "EntrLockClient", return_value=client),
+            patch.object(client, "kdf_resync", side_effect=BleakError("Lost link")),
+            self.assertRaises(HomeAssistantError),
+        ):
+            await device.async_lock()
+        self.assertFalse(device.locked)
+        self.assertEqual(client.calls, ["connect", "disconnect"])
+        listener.assert_called_once()
+
+    async def test_parallel_sessions_wait_and_cancelled_session_disconnects(self):
+        device = api.EntrDevice(
+            object(),
+            {CONF_ADDRESS: "AA:BB", "kdf_id": 3, "role": 0, CONF_AES_KEY: "11" * 16},
+        )
+        connected = asyncio.Event()
+        release = asyncio.Event()
+        client = FakeClient(object(), 15)
+
+        async def connect():
+            connected.set()
+            await release.wait()
+
+        with (
+            patch.object(api, "EntrLockClient", return_value=client) as factory,
+            patch.object(client, "connect", side_effect=connect),
+        ):
+            first = asyncio.create_task(device.async_sync())
+            await asyncio.wait_for(connected.wait(), 1)
+            second = asyncio.create_task(device.async_sync())
+            await asyncio.sleep(0)
+            self.assertEqual(factory.call_count, 1)
+            first.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await first
+            release.set()
+            await asyncio.wait_for(second, 1)
+        self.assertEqual(factory.call_count, 2)
+        self.assertEqual(client.calls, ["disconnect", "kdf", "disconnect"])
 
 
 if __name__ == "__main__":
