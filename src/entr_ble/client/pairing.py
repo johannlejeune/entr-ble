@@ -4,8 +4,8 @@ import entr_ble.const as const
 import entr_ble.crypto as crypto
 
 from ..session_crypto import SessionCrypto
-from .fields import StatusData, decode_status, fixed_length
-from .transport import EntrProtocolError, TransportClient
+from .fields import StatusData, decode_status, fixed_bytes, fixed_length
+from .transport import EntrProtocolError, TransportClient, validate_response
 
 
 class OwnerCredentials(TypedDict):
@@ -35,8 +35,14 @@ class Pairing(TransportClient):
         _, payload = await self._send_raw(
             const.CMD_GET_COMMUNICATION_VERSION, bytes([0])
         )
+        validate_response(payload, const.CMD_GET_COMMUNICATION_VERSION_RESPONSE, 2)
         length = payload[1]
-        self.comm_version = payload[2 : 2 + length].decode("ascii")
+        if len(payload) < 2 + length:
+            raise EntrProtocolError("truncated communication version")
+        try:
+            self.comm_version = payload[2 : 2 + length].decode("ascii")
+        except UnicodeDecodeError as exc:
+            raise EntrProtocolError("invalid communication version") from exc
         return self.comm_version
 
     async def pair(self) -> None:
@@ -46,20 +52,28 @@ class Pairing(TransportClient):
         """
         our_pub = crypto.public_key_bytes(self.private_key)
         _, response = await self._send_raw(const.CMD_SEND_PUBLIC_KEY, our_pub)
+        if len(response) < 144:
+            raise EntrProtocolError("truncated public key response")
         remote_aes_pub = response[0:64]
         remote_iv = response[128:144]
-        key = crypto.derive_session_key(self.private_key, remote_aes_pub)
+        try:
+            key = crypto.derive_session_key(self.private_key, remote_aes_pub)
+        except ValueError as exc:
+            raise EntrProtocolError("invalid lock public key") from exc
         self.session = SessionCrypto(key)
         self.session.set_iv(remote_iv)
 
     async def handshake(self, app_id: bytes) -> None:
-        await self._send_encrypted(const.CMD_HANDSHAKE1, app_id)
+        await self._send_encrypted(
+            const.CMD_HANDSHAKE1, fixed_bytes(app_id, 16, "application id")
+        )
 
     async def recover_owner(self, admin_code: str, app_id: bytes) -> OwnerCredentials:
-        fields = admin_code.encode("ascii") + app_id
+        fields = fixed_length(
+            admin_code, const.ADMIN_CODE_LENGTH, "admin code"
+        ) + fixed_bytes(app_id, 16, "application id")
         response = await self._send_encrypted(const.CMD_RECOVER_OWNER, fields)
-        if response is None:
-            raise EntrProtocolError("no encrypted response to RECOVER_OWNER")
+        validate_response(response, const.CMD_RECOVER_OWNER_RESPONSE, 50)
         # response[0] echoes the inner response command byte; fields start at 1.
         ble_ekey = response[1:33]
         kdf_id = response[33]
@@ -82,10 +96,10 @@ class Pairing(TransportClient):
         fields = (
             b"000000"
             + fixed_length(admin_code, const.ADMIN_CODE_LENGTH, "admin code")
-            + app_id
-            + user_id
+            + fixed_bytes(app_id, 16, "application id")
+            + fixed_bytes(user_id, 16, "user id")
             + bytes([const.MODE_AUTO])
-            + lock_name
+            + fixed_bytes(lock_name, 16, "lock name")
             + bytes([provider_id])
         )
         outer_command, response = await self._exchange_encrypted(
@@ -93,6 +107,7 @@ class Pairing(TransportClient):
         )
         if outer_command != const.CMD_GENERAL_ENCRYPTED or response is None:
             raise EntrProtocolError("no encrypted response to SET_OWNER")
+        validate_response(response, const.CMD_SET_OWNER_RESPONSE, 35)
         await self._send_ack(const.CMD_SET_OWNER_ACK)
         # The response carries ekey(32), kdf id, status, then battery percentage
         # past comm version 1.28r1; it has no passcode field.
@@ -111,12 +126,11 @@ class Pairing(TransportClient):
         """
         fields = (
             fixed_length(key_code, const.KEY_CODE_LENGTH, "key code")
-            + app_id
+            + fixed_bytes(app_id, 16, "application id")
             + bytes([6])
         )
         response = await self._send_encrypted(const.CMD_GET_NEW_KEY, fields)
-        if response is None:
-            raise EntrProtocolError("no encrypted response to GET_NEW_KEY")
+        validate_response(response, const.CMD_GET_NEW_KEY_RESPONSE, 52)
         await self._send_ack(const.CMD_GET_NEW_KEY_ACK)
         # Note the field order differs from RecoverOwner's response.
         return {
@@ -130,10 +144,14 @@ class Pairing(TransportClient):
     async def kdf_resync(self, kdf_id: int, role: int, key: bytes) -> StatusData | None:
         """Re-derives the session IV, and picks up the status the lock piggybacks
         on the response, which saves a separate GetDeviceConfig round trip."""
-        self.session = SessionCrypto(key)
+        session = SessionCrypto(key)
         _, payload = await self._send_raw(const.CMD_KDF, bytes([kdf_id, role]))
+        validate_response(payload, const.CMD_KDF_RESPONSE, 89)
         iv = payload[1:17]
-        self.session.set_iv(iv)
+        session.set_iv(iv)
+        self.session = session
+        self.status = None
+        self.status_raw = None
         # [0] command echo, [1:17] IV, [17:89] signature, then the status byte;
         # the battery/passcode bytes only exist past comm version 1.28r1.
         if len(payload) > 89:

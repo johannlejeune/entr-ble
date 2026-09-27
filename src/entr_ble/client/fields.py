@@ -85,6 +85,8 @@ def build_lock_name(name: str) -> bytes:
 def time_bcd(moment: datetime | None = None) -> bytes:
     """6-byte UTC timestamp packed as BCD: YY MM DD HH MM SS."""
     moment = moment or datetime.now(UTC)
+    if moment.tzinfo is not None:
+        moment = moment.astimezone(UTC)
     return bytes(
         ((v // 10) << 4) | (v % 10)
         for v in (
@@ -106,7 +108,7 @@ def decode_status(
     A valid percentage takes precedence over the status bits, which serve as a
     fallback.
     """
-    if battery_percentage is None or battery_percentage in (0xFF, -1):
+    if battery_percentage is None or not 0 <= battery_percentage <= 100:
         battery_state = _battery_state_from_status(status)
         battery_percentage = None
     else:
@@ -160,14 +162,24 @@ def fixed_length(value: str, length: int, what: str) -> bytes:
     return value.encode("ascii")
 
 
+def fixed_bytes(value, length, what):
+    if len(value) != length:
+        raise ValueError(f"{what} must be exactly {length} bytes, got {len(value)}")
+    return value
+
+
 def parse_user_batch(response: bytes, users: list[UserEntry]) -> int:
     """Appends one batch of users and returns how many are still to come.
 
     Byte 1 counts users left including this batch, byte 2 counts this batch,
     followed by 18 bytes per entry.
     """
+    if len(response) < 3 or response[0] != const.CMD_GET_KEYS_RESPONSE:
+        raise ValueError("invalid user batch response")
     remaining = response[1]
     batch = response[2]
+    if len(response) < 3 + batch * 18 or batch > remaining or remaining and not batch:
+        raise ValueError("invalid user batch length")
     for i in range(batch):
         offset = 3 + i * 18
         users.append(
@@ -188,6 +200,8 @@ def parse_audit_record(data: bytes) -> AuditRecord:
     offset = 0
     while offset + 2 <= len(data):
         tag, length = data[offset], data[offset + 1]
+        if offset + 2 + length > len(data):
+            raise ValueError("truncated audit record field")
         value = data[offset + 2 : offset + 2 + length]
         if tag == 1 and length == 6:
             digits = [(b >> 4) * 10 + (b & 0xF) for b in value]
@@ -203,4 +217,6 @@ def parse_audit_record(data: bytes) -> AuditRecord:
                 value[0] if value else -1, f"unknown ({value.hex()})"
             )
         offset += 2 + length
+    if offset != len(data):
+        raise ValueError("truncated audit record header")
     return record

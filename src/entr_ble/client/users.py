@@ -1,6 +1,12 @@
 import entr_ble.const as const
 
-from .fields import UserEntry, fixed_length, parse_user_batch, user_id_bytes
+from .fields import (
+    UserEntry,
+    fixed_bytes,
+    fixed_length,
+    parse_user_batch,
+    user_id_bytes,
+)
 from .transport import EntrProtocolError, TransportClient
 
 
@@ -22,7 +28,7 @@ class Users(TransportClient):
             + user_id_bytes(name)
             + fixed_length(key_code, const.KEY_CODE_LENGTH, "key code")
             + bytes([expiration_hours, role])
-            + app_id
+            + fixed_bytes(app_id, 16, "application id")
         )
         await self._send_encrypted(const.CMD_CREATE_NEW_KEY, fields)
 
@@ -36,8 +42,8 @@ class Users(TransportClient):
         redeeming the key.
         """
         fields = (
-            user_id
-            + app_id
+            fixed_bytes(user_id, 16, "user id")
+            + fixed_bytes(app_id, 16, "application id")
             + fixed_length(admin_code, const.ADMIN_CODE_LENGTH, "admin code")
         )
         await self._send_encrypted(const.CMD_SET_ADMIN_CODE, fields)
@@ -61,15 +67,19 @@ class Users(TransportClient):
         """The lock answers with as many batches as it needs, back to back and
         without being asked again, so keep reading until it says none are left.
         """
-        fields = (
-            fixed_length(admin_code, const.ADMIN_CODE_LENGTH, "admin code") + app_id
-        )
+        fields = fixed_length(
+            admin_code, const.ADMIN_CODE_LENGTH, "admin code"
+        ) + fixed_bytes(app_id, 16, "application id")
         response = await self._send_encrypted(const.CMD_GET_KEYS, fields)
         if response is None:
             raise EntrProtocolError("no encrypted response to GET_KEYS")
         users: list[UserEntry] = []
         while True:
-            if parse_user_batch(response, users) == 0:
+            try:
+                remaining = parse_user_batch(response, users)
+            except ValueError as exc:
+                raise EntrProtocolError("invalid user batch") from exc
+            if remaining == 0:
                 break
             response = await self._receive_encrypted()
             if response is None:
@@ -82,7 +92,7 @@ class Users(TransportClient):
         # Revoke, enable and disable share one frame with the target user's role.
         fields = (
             fixed_length(admin_code, const.ADMIN_CODE_LENGTH, "admin code")
-            + app_id
+            + fixed_bytes(app_id, 16, "application id")
             + user_id_bytes(name)
             + bytes([role])
         )

@@ -3,8 +3,8 @@ from typing import NotRequired, TypedDict
 
 import entr_ble.const as const
 
-from .fields import AuditRecord, fixed_length, parse_audit_record
-from .transport import EntrProtocolError, TransportClient
+from .fields import AuditRecord, fixed_bytes, fixed_length, parse_audit_record
+from .transport import EntrProtocolError, TransportClient, validate_response
 
 
 class DeviceInfo(TypedDict):
@@ -40,7 +40,8 @@ class Diagnostics(TransportClient):
         Uses the FOTA GATT service. Direct session crypto needs comm version
         1.29r3+; older locks require a separate FOTA IV exchange.
         """
-        if not self.comm_version or self.comm_version < "1.29r3":
+        version = re.fullmatch(r"(\d+)\.(\d+)r(\d+)", self.comm_version)
+        if version is None or tuple(map(int, version.groups())) < (1, 29, 3):
             raise EntrProtocolError(
                 f"GET_DEVICE_INFO needs comm version 1.29r3+, this lock reports {self.comm_version!r}"
             )
@@ -50,16 +51,23 @@ class Diagnostics(TransportClient):
         )
         if outer_command != const.CMD_GENERAL_ENCRYPTED or payload is None:
             raise EntrProtocolError("no encrypted response to GET_DEVICE_INFO")
+        validate_response(payload, const.CMD_GET_DEVICE_INFO_RESPONSE, 1)
 
         def _raw_string(offset: int) -> tuple[bytes, int]:
             # Each string has a length prefix; offset 0 is the command echo.
+            if offset >= len(payload):
+                raise EntrProtocolError("missing device information field")
             length = payload[offset]
+            if offset + 1 + length > len(payload):
+                raise EntrProtocolError("truncated device information field")
             return payload[offset + 1 : offset + 1 + length], offset + 1 + length
 
         device_id, offset = _raw_string(1)
         model_raw, offset = _raw_string(offset)
         code_version_raw, offset = _raw_string(offset)
         update_status = payload[offset : offset + 4]
+        if len(update_status) != 4:
+            raise EntrProtocolError("truncated firmware update status")
 
         def _text(raw: bytes) -> str:
             # Version fields may be NUL padded.
@@ -103,13 +111,19 @@ class Diagnostics(TransportClient):
         errors (OP_ERROR) do not show up in the log.
         """
         self._require_fota()
-        fields = query[:8].ljust(8, b"\x00")
-        _, payload = await self._exchange_encrypted_on(
+        fields = fixed_bytes(query, 8, "error query")
+        outer_command, payload = await self._exchange_encrypted_on(
             const.CMD_GET_ERRORS, fields, fota=True
         )
-        if payload is None:
+        if (
+            outer_command != const.CMD_GENERAL_ENCRYPTED
+            or payload is None
+            or len(payload) < 2
+        ):
             raise EntrProtocolError("no encrypted response to GET_ERRORS")
         length = payload[1]
+        if len(payload) < 2 + length:
+            raise EntrProtocolError("truncated error log")
         data = payload[2 : 2 + length]
         return {
             "response_code": payload[0],
@@ -125,7 +139,7 @@ class Diagnostics(TransportClient):
         """GET_DATA (81) with type 3: how many records the log holds. NIZ only."""
         fields = (
             fixed_length(admin_code, const.ADMIN_CODE_LENGTH, "admin code")
-            + app_id
+            + fixed_bytes(app_id, 16, "application id")
             + bytes([3, 0])
         )
         payload = await self._get_data_response(fields)
@@ -142,21 +156,27 @@ class Diagnostics(TransportClient):
         """
         fields = (
             fixed_length(admin_code, const.ADMIN_CODE_LENGTH, "admin code")
-            + app_id
+            + fixed_bytes(app_id, 16, "application id")
             + bytes([1, 1, batch_size])
         )
         records: list[AuditRecord] = []
         payload = await self._get_data_response(fields)
         while True:
+            validate_response(payload, const.CMD_GET_DATA_RESPONSE, 3)
             length = payload[2]
             if len(payload) < 3 + length + 1:
                 raise EntrProtocolError("truncated audit trail record")
-            records.append(parse_audit_record(payload[3 : 3 + length]))
+            try:
+                records.append(parse_audit_record(payload[3 : 3 + length]))
+            except ValueError as exc:
+                raise EntrProtocolError("invalid audit trail record") from exc
             # The LAST_T flag byte sits right after the record data.
-            if payload[3 + length] == 0xFF or len(records) > 10000:
+            if payload[3 + length] == 0xFF:
                 return records
+            if len(records) >= 10000:
+                raise EntrProtocolError("audit trail stream exceeds record limit")
             payload = await self._receive_encrypted()
-            if payload is None or payload[0] != const.CMD_GET_DATA_RESPONSE:
+            if not payload or payload[0] != const.CMD_GET_DATA_RESPONSE:
                 raise EntrProtocolError("audit trail stream ended unexpectedly")
 
     def _require_fota(self) -> None:

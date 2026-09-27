@@ -10,6 +10,7 @@ import entr_ble.crypto as crypto
 from ..framing import (
     LOCATION_INLINE,
     LOCATION_PRIMARY,
+    MAX_INLINE_PAYLOAD,
     ChunkAssembler,
     build_control_frame,
     build_payload_chunks,
@@ -18,7 +19,6 @@ from ..framing import (
 from ..session_crypto import SessionCrypto
 from .fields import StatusData
 
-MAX_INLINE_PAYLOAD = 14
 RESPONSE_TIMEOUT = 8.0
 # Allow the lock time to process a response before acknowledging it.
 ACK_DELAY = 0.4
@@ -87,6 +87,13 @@ class EntrLockError(EntrProtocolError):
         super().__init__(f"lock returned error: {category_name} / {detail_name}")
 
 
+def validate_response(payload, command, minimum_length):
+    if not payload or payload[0] != command:
+        raise EntrProtocolError(f"unexpected response to command {command}")
+    if len(payload) < minimum_length:
+        raise EntrProtocolError(f"truncated response to command {command}")
+
+
 class TransportClient:
     def __init__(self, device, timeout=10.0):
         self.address = device.address if isinstance(device, BLEDevice) else device
@@ -133,7 +140,8 @@ class TransportClient:
         try:
             parsed = parse_control_frame(bytes(data))
         except ValueError as exc:
-            self._queue(exc)
+            self._pending_command = None
+            self._queue(EntrProtocolError(str(exc)))
             return
         if parsed.payload_location == LOCATION_INLINE:
             self._queue((parsed.command, parsed.payload or b""))
@@ -141,7 +149,7 @@ class TransportClient:
             # Arm the assembler synchronously: the lock can start sending
             # payload chunks before our coroutine resumes.
             self._pending_command = parsed.command
-            self._primary.reset(parsed.payload_checksum)
+            self._primary.reset(parsed.payload_checksum, parsed.payload_length)
         else:
             self._queue(
                 EntrProtocolError(
@@ -150,18 +158,21 @@ class TransportClient:
             )
 
     def _on_primary(self, _char, data: bytearray) -> None:
+        if self._pending_command is None:
+            self._queue(EntrProtocolError("payload arrived without a control frame"))
+            return
         try:
             result = self._primary.feed(bytes(data))
         except ValueError as exc:
-            self._queue(exc)
+            self._pending_command = None
+            self._queue(EntrProtocolError(str(exc)))
             return
         if result is not None:
             self._queue((self._pending_command, result))
+            self._pending_command = None
 
     def _queue(self, item: tuple[int | None, bytes] | Exception) -> None:
-        asyncio.get_running_loop().call_soon_threadsafe(
-            self._responses.put_nowait, item
-        )
+        self._responses.put_nowait(item)
 
     async def _checked_command(self, command: int, fields: bytes) -> None:
         """Sends a settings/maintenance command and confirms its success echo."""
@@ -172,33 +183,37 @@ class TransportClient:
     async def _get_data_response(self, fields: bytes) -> bytes:
         """Sends GET_DATA and returns its encrypted response (echo 82 included)."""
         payload = await self._send_encrypted(const.CMD_GET_DATA, fields)
-        if payload is None or payload[0] != const.CMD_GET_DATA_RESPONSE:
+        if not payload or payload[0] != const.CMD_GET_DATA_RESPONSE:
             raise EntrProtocolError("no audit trail response from lock")
+        if len(payload) < 3 or len(payload) < 3 + payload[2]:
+            raise EntrProtocolError("truncated audit trail response")
         return payload
 
     async def _send_encrypted(self, command: int, fields: bytes) -> bytes | None:
-        return (await self._exchange_encrypted(command, fields))[1]
+        outer_command, payload = await self._exchange_encrypted(command, fields)
+        return payload if outer_command == const.CMD_GENERAL_ENCRYPTED else None
 
     async def _exchange_encrypted(
         self, command: int, fields: bytes
     ) -> tuple[int, bytes | None]:
-        """Returns (outer command, decrypted payload); the payload is None for a
-        plain acknowledgment (e.g. unlock/lock reply with an OP_STATUS frame
-        instead of an encrypted one)."""
+        """Returns the outer command and its plaintext or decrypted payload."""
         return await self._exchange_encrypted_on(command, fields, fota=False)
 
     async def _exchange_encrypted_on(
         self, command: int, fields: bytes, fota: bool
     ) -> tuple[int, bytes | None]:
-        assert self.session is not None
+        if self.session is None:
+            raise EntrProtocolError(
+                "establish a session before sending encrypted commands"
+            )
         plaintext = bytes([command]) + fields
         wire = self.session.encrypt(plaintext)
         response_command, response = await self._send_raw(
             const.CMD_GENERAL_ENCRYPTED, wire, fota=fota
         )
         if response_command != const.CMD_GENERAL_ENCRYPTED:
-            return response_command, None
-        return response_command, self.session.decrypt(response)
+            return response_command, response
+        return response_command, self._decrypt_response(response)
 
     async def _send_raw(
         self, outer_command: int, payload: bytes, fota: bool = False
@@ -212,6 +227,7 @@ class TransportClient:
         # Drop anything left over from a previous exchange.
         while not self._responses.empty():
             self._responses.get_nowait()
+        self._pending_command = None
 
         frame = build_control_frame(outer_command, payload)
         await self.client.write_gatt_char(control_char, frame, response=True)
@@ -224,8 +240,15 @@ class TransportClient:
         command, response = await self._receive()
         if command != const.CMD_GENERAL_ENCRYPTED:
             return None
-        assert self.session is not None
-        return self.session.decrypt(response)
+        return self._decrypt_response(response)
+
+    def _decrypt_response(self, response):
+        if self.session is None:
+            raise EntrProtocolError("encrypted response arrived without a session")
+        try:
+            return self.session.decrypt(response)
+        except ValueError as exc:
+            raise EntrProtocolError("invalid encrypted response") from exc
 
     async def _receive(self) -> tuple[int, bytes]:
         item = await asyncio.wait_for(self._responses.get(), RESPONSE_TIMEOUT)
@@ -235,6 +258,8 @@ class TransportClient:
         if command is None:
             raise EntrProtocolError("payload response arrived without a control frame")
         if command == const.CMD_OP_ERROR:
+            if len(response) < 4:
+                raise EntrProtocolError("truncated lock error response")
             raise EntrLockError(
                 category=response[1], detail=response[2] | (response[3] << 8)
             )
@@ -248,12 +273,13 @@ class TransportClient:
         wrapped in GENERAL_ENCRYPTED like everything else or as a bare frame."""
         if outer_command == const.CMD_GENERAL_ENCRYPTED:
             return (
-                bool(payload)
+                payload is not None
+                and len(payload) >= 2
                 and payload[0] == const.CMD_OP_SUCCESS_EXP
-                and (len(payload) < 2 or payload[1] == command)
+                and payload[1] == command
             )
         if outer_command == const.CMD_OP_SUCCESS_EXP:
-            return payload is not None and (len(payload) < 2 or payload[1] == command)
+            return payload is not None and len(payload) >= 2 and payload[1] == command
         return False
 
     async def _send_ack(self, command: int) -> None:
