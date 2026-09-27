@@ -176,7 +176,7 @@ class EntrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 data = _credentials(user_input)
-            except ValueError:
+            except (TypeError, ValueError):
                 errors["base"] = "invalid_credentials"
             else:
                 await self.async_set_unique_id(data[CONF_ADDRESS].lower())
@@ -248,7 +248,7 @@ def _credentials(user_input):
     for field, length in _HEX_FIELDS.items():
         value = data[field]
         if not isinstance(value, str):
-            raise ValueError
+            raise TypeError
         decoded = bytes.fromhex(value)
         if len(decoded) != length:
             raise ValueError
