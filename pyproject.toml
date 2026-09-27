@@ -18,6 +18,17 @@ dependencies = [
 [tool.uv.workspace]
 members = ["packages/entr-ble-cli"]
 
+[tool.uv.dependency-groups]
+hacs = { requires-python = ">=3.14.2" }
+
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.9",
+]
+hacs = [
+    "homeassistant==2026.9.3",
+]
