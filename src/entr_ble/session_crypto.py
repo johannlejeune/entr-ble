@@ -10,10 +10,14 @@ class SessionCrypto:
     """
 
     def __init__(self, key: bytes):
+        if len(key) != 16:
+            raise ValueError("session key must be exactly 16 bytes")
         self.key = key
         self.iv_tail = b"\x00" * 15
 
     def set_iv(self, iv: bytes) -> None:
+        if len(iv) != 16:
+            raise ValueError("session IV must be exactly 16 bytes")
         self.iv_tail = iv[1:16]
 
     def encrypt(self, plaintext: bytes) -> bytes:
@@ -26,6 +30,8 @@ class SessionCrypto:
         return iv_head + ciphertext
 
     def decrypt(self, wire: bytes) -> bytes:
+        if len(wire) < 17 or (len(wire) - 1) % 16:
+            raise ValueError("invalid encrypted payload length")
         iv = wire[0:1] + self.iv_tail
         decryptor = Cipher(algorithms.AES(self.key), modes.CBC(iv)).decryptor()
         padded = decryptor.update(wire[1:]) + decryptor.finalize()

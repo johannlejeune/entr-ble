@@ -31,6 +31,8 @@ def derive_session_key(
 
 
 def _load_peer_public_key(raw: bytes) -> ec.EllipticCurvePublicKey:
+    if len(raw) != 64:
+        raise ValueError("peer public key must be exactly 64 bytes")
     x = int.from_bytes(raw[:32], "big")
     y = int.from_bytes(raw[32:64], "big")
     return ec.EllipticCurvePublicNumbers(x, y, ec.SECP256R1()).public_key()

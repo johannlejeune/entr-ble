@@ -15,6 +15,7 @@ class ControlResponse:
     payload_location: int
     payload_checksum: int
     payload: bytes | None
+    payload_length: int = 0
 
 
 @dataclass
@@ -24,17 +25,31 @@ class ChunkAssembler:
     expected_checksum: int = 0
     counter: int = 0
     buffer: bytearray = field(default_factory=bytearray)
+    expected_length: int | None = None
 
-    def reset(self, expected_checksum: int) -> None:
+    def reset(self, expected_checksum: int, expected_length=None) -> None:
         self.expected_checksum = expected_checksum
+        self.expected_length = expected_length
         self.counter = 0
         self.buffer.clear()
 
     def feed(self, chunk: bytes) -> bytes | None:
+        if len(chunk) < 2 or not 0 < chunk[1] <= MAX_CHUNK_SIZE:
+            raise ValueError("invalid payload chunk length")
+        if len(chunk) < 2 + chunk[1]:
+            raise ValueError("truncated payload chunk")
         self.counter += 1
         is_last = _is_last_chunk(chunk, self.counter)
+        if not is_last and chunk[0] != self.counter & 0xFF:
+            raise ValueError("payload chunk out of sequence")
         chunk_len = chunk[1]
         self.buffer += chunk[2 : 2 + chunk_len]
+        if self.expected_length is not None and (
+            len(self.buffer) > self.expected_length
+            or is_last
+            and len(self.buffer) != self.expected_length
+        ):
+            raise ValueError("payload length mismatch")
         if not is_last:
             return None
         if _checksum(bytes(self.buffer)) != self.expected_checksum:
@@ -43,6 +58,8 @@ class ChunkAssembler:
 
 
 def build_control_frame(command: int, payload: bytes) -> bytes:
+    if not 0 <= command <= 0xFF or len(payload) > 0xFFFF:
+        raise ValueError("command or payload exceeds control frame limits")
     payload_type = 0 if len(payload) <= MAX_INLINE_PAYLOAD else 1
     length = len(payload)
     header = bytearray(
@@ -79,6 +96,8 @@ def build_payload_chunks(data: bytes) -> list[bytes]:
 
 
 def parse_control_frame(data: bytes) -> ControlResponse:
+    if len(data) < 6:
+        raise ValueError("truncated control frame")
     if _checksum(data[:5]) != data[5]:
         raise ValueError("control frame header checksum mismatch")
     command = data[0]
@@ -86,11 +105,15 @@ def parse_control_frame(data: bytes) -> ControlResponse:
     length = data[2] | (data[3] << 8)
     payload_checksum = data[4]
     if payload_location != LOCATION_INLINE:
-        return ControlResponse(command, payload_location, payload_checksum, None)
+        return ControlResponse(
+            command, payload_location, payload_checksum, None, length
+        )
+    if length > MAX_INLINE_PAYLOAD or len(data) < 6 + length:
+        raise ValueError("invalid inline payload length")
     payload = data[6 : 6 + length] if length else None
-    if payload is not None and _checksum(payload) != payload_checksum:
+    if _checksum(payload or b"") != payload_checksum:
         raise ValueError("control frame payload checksum mismatch")
-    return ControlResponse(command, payload_location, payload_checksum, payload)
+    return ControlResponse(command, payload_location, payload_checksum, payload, length)
 
 
 def _is_last_chunk(chunk: bytes, counter: int) -> bool:
