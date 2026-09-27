@@ -1,5 +1,9 @@
 from dataclasses import dataclass
 
+from entr_ble import const
+
+from ._shared import ROLE_CHOICES, VOLUME_CHOICES
+
 
 @dataclass(frozen=True)
 class Field:
@@ -179,14 +183,8 @@ ACTIONS.update({action.command: action for action in SETUP_ACTIONS})
 
 def normalize_values(values: dict[str, str]) -> dict[str, object]:
     choices = {
-        "role": {
-            "user",
-            "admin",
-            "remote-control",
-            "wall-reader",
-            "integration-unit",
-        },
-        "volume": {"high", "medium", "low", "muted"},
+        "role": ROLE_CHOICES,
+        "volume": VOLUME_CHOICES,
         "auto_lock": {"on", "off"},
         "door": {"left", "right"},
         "type": {"normal", "lift"},
@@ -202,6 +200,11 @@ def normalize_values(values: dict[str, str]) -> dict[str, object]:
                 raise ValueError(
                     f"{key.replace('_', ' ').capitalize()} must be a whole number."
                 ) from exc
+            if key == "expiration" and result[key] not in const.EXPIRATION_HOURS:
+                valid = ", ".join(map(str, const.EXPIRATION_HOURS))
+                raise ValueError(f"Expiration must be one of: {valid} hours.")
+            if key == "provider" and not 0 <= result[key] <= 255:
+                raise ValueError("Provider must be between 0 and 255.")
         elif key == "sync_time":
             result[key] = _boolean_value(key, value)
         elif key in choices:
