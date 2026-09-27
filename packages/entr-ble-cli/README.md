@@ -10,6 +10,8 @@ Run `entr-ble --help` for one-shot commands. Each one-shot command opens its own
 
 Credentials are stored locally in `~/.config/entr-ble/credentials.json`, with access restricted to the current user. Set `ENTR_BLE_STORE` to use another path. This file contains keys that grant access to the lock: keep it private and out of version control. It is not encrypted at rest.
 
+Writes replace the credentials file atomically. Use one process at a time when modifying a shared store; concurrent writers are not coordinated.
+
 Owner enrollment replaces the lock's current owner slot. A factory reset erases lock users and settings and removes the local credentials after success. Both actions ask for confirmation in the TUI; the one-shot `factory-reset` command also asks unless `--yes` is supplied. Passwords passed as command arguments may be recorded in shell history; the TUI uses masked password fields.
 
 Run the CLI and TUI tests without Bluetooth hardware with `uv run --package entr-ble-cli python -m unittest discover -s packages/entr-ble-cli/tests` from the repository root.
