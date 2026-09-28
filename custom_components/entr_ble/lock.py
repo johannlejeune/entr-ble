@@ -41,12 +41,12 @@ class EntrLock(RestoreEntity, LockEntity):
         await self._device.async_lock()
 
     @override
-    async def async_unlock(self, **kwargs):
-        await self._device.async_unlock()
-
-    @override
     async def async_open(self, **kwargs):
         await self.async_unlock(**kwargs)
+
+    @override
+    async def async_unlock(self, **kwargs):
+        await self._device.async_unlock()
 
     def _update_state(self):
         if self._device.locked is not None:

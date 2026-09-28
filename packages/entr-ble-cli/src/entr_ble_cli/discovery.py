@@ -13,6 +13,20 @@ class ScanItem:
     rssi: int | None = None
 
 
+async def scan(timeout: float = 5.0, show_all: bool = False) -> list[str]:
+    items = await discover(timeout)
+    locks = [item.label for item in items if item.is_lock]
+    others = [item.label for item in items if not item.is_lock]
+    lines = locks or ["no ENTR lock found"]
+    if show_all:
+        lines.extend(others)
+    elif others:
+        lines.append(
+            f"({len(others)} other BLE devices hidden, use --all to show them)"
+        )
+    return lines
+
+
 async def discover(timeout: float = 5.0) -> list[ScanItem]:
     found = await BleakScanner.discover(timeout=timeout, return_adv=True)
     locks, others = [], []
@@ -32,17 +46,3 @@ async def discover(timeout: float = 5.0) -> list[ScanItem]:
     return sorted(
         locks, key=lambda item: -(item.rssi if item.rssi is not None else -1000)
     ) + sorted(others, key=lambda item: item.address)
-
-
-async def scan(timeout: float = 5.0, show_all: bool = False) -> list[str]:
-    items = await discover(timeout)
-    locks = [item.label for item in items if item.is_lock]
-    others = [item.label for item in items if not item.is_lock]
-    lines = locks or ["no ENTR lock found"]
-    if show_all:
-        lines.extend(others)
-    elif others:
-        lines.append(
-            f"({len(others)} other BLE devices hidden, use --all to show them)"
-        )
-    return lines

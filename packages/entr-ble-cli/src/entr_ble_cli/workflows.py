@@ -10,7 +10,7 @@ from entr_ble.client import (
     user_id_bytes,
 )
 
-from ._shared import CommandError
+from .shared import CommandError
 from .store import LockCredentials
 from .store import get as get_credentials
 from .store import put as put_credentials
@@ -135,6 +135,6 @@ class LockSession:
     async def _authenticated(
         self, command: str, creds: LockCredentials, p: dict[str, Any]
     ) -> list[str]:
-        from ._operations import run_authenticated
+        from .operations import run_authenticated
 
         return await run_authenticated(self, command, creds, p)

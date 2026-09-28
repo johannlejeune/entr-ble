@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from entr_ble_cli import workflows
-from entr_ble_cli._actions import maintenance, settings
+from entr_ble_cli.actions import maintenance, settings
 from entr_ble_cli.commands import common
 from entr_ble_cli.store import LockCredentials
 

@@ -1,4 +1,4 @@
-from .._shared import VOLUME_CHOICES
+from ..shared import VOLUME_CHOICES
 from .common import handle
 
 

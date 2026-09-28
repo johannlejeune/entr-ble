@@ -132,26 +132,6 @@ def decode_status(
     return decoded
 
 
-def _battery_state_from_status(status: int) -> int:
-    # Both battery bits set indicate an unknown reading.
-    i = (
-        bool(status & const.STATUS_BIT_BATTERY_LOW)
-        + bool(status & const.STATUS_BIT_BATTERY_MED) * 2
-    )
-    return {0: const.BATTERY_HIGH, 1: const.BATTERY_LOW, 2: const.BATTERY_MEDIUM}.get(
-        i, -1
-    )
-
-
-def _battery_state_from_percents(percentage: int) -> int:
-    # Battery thresholds are low below 10% and medium through 20%.
-    if percentage < 10:
-        return const.BATTERY_LOW
-    if percentage <= 20:
-        return const.BATTERY_MEDIUM
-    return const.BATTERY_HIGH if percentage <= 100 else -1
-
-
 def fixed_length(value: str, length: int, what: str) -> bytes:
     # The frame layout reserves an exact number of bytes; a short value would
     # silently shift every following field.
@@ -220,3 +200,23 @@ def parse_audit_record(data: bytes) -> AuditRecord:
     if offset != len(data):
         raise ValueError("truncated audit record header")
     return record
+
+
+def _battery_state_from_status(status: int) -> int:
+    # Both battery bits set indicate an unknown reading.
+    i = (
+        bool(status & const.STATUS_BIT_BATTERY_LOW)
+        + bool(status & const.STATUS_BIT_BATTERY_MED) * 2
+    )
+    return {0: const.BATTERY_HIGH, 1: const.BATTERY_LOW, 2: const.BATTERY_MEDIUM}.get(
+        i, -1
+    )
+
+
+def _battery_state_from_percents(percentage: int) -> int:
+    # Battery thresholds are low below 10% and medium through 20%.
+    if percentage < 10:
+        return const.BATTERY_LOW
+    if percentage <= 20:
+        return const.BATTERY_MEDIUM
+    return const.BATTERY_HIGH if percentage <= 100 else -1

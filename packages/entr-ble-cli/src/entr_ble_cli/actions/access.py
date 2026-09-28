@@ -1,6 +1,6 @@
 from typing import Any
 
-from .._shared import SessionLike
+from ..shared import SessionLike
 from ..store import LockCredentials
 
 COMMANDS = {"unlock", "lock", "status", "info", "device-info"}

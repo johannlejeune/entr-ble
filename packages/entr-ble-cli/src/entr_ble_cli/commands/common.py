@@ -1,7 +1,7 @@
 import argparse
 
-from .._discovery import scan
-from .._shared import CommandError
+from ..discovery import scan
+from ..shared import CommandError
 from ..workflows import LockSession
 
 

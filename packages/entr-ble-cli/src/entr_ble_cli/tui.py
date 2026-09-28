@@ -10,7 +10,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, OptionList, Static
 from textual.widgets.option_list import Option
 
-from ._discovery import ScanItem, discover
+from .discovery import ScanItem, discover
 from .tui_actions import ACTION_GROUPS, ACTIONS, SETUP_ACTIONS, Action, normalize_values
 from .workflows import LockSession
 
@@ -34,6 +34,15 @@ class ActionForm(ModalScreen[dict[str, str] | None]):
                 yield Button("Run", variant="primary", id="submit-action")
                 yield Button("Cancel", id="cancel-action")
 
+    @on(Input.Submitted)
+    def advance(self, event: Input.Submitted) -> None:
+        fields = [field.name for field in self.action.fields]
+        index = fields.index((event.input.id or "").removeprefix("field-"))
+        if index + 1 == len(fields):
+            self.submit()
+        else:
+            self.query_one(f"#field-{fields[index + 1]}", Input).focus()
+
     @on(Button.Pressed, "#submit-action")
     def submit(self) -> None:
         values = {
@@ -51,15 +60,6 @@ class ActionForm(ModalScreen[dict[str, str] | None]):
             self.notify(str(exc), severity="warning")
             return
         self.dismiss(values)
-
-    @on(Input.Submitted)
-    def advance(self, event: Input.Submitted) -> None:
-        fields = [field.name for field in self.action.fields]
-        index = fields.index((event.input.id or "").removeprefix("field-"))
-        if index + 1 == len(fields):
-            self.submit()
-        else:
-            self.query_one(f"#field-{fields[index + 1]}", Input).focus()
 
     @on(Button.Pressed, "#cancel-action")
     def cancel(self) -> None:
@@ -192,33 +192,9 @@ class EntrBleApp(App[None], inherit_bindings=False):
     def address_submitted(self, event: Input.Submitted) -> None:
         self._connect_address(event.value.strip())
 
-    def _connect_address(self, address: str) -> None:
-        if address:
-            self.connect_lock(address)
-        else:
-            self.notify("Enter a Bluetooth address first.", severity="warning")
-
     @on(Button.Pressed, "#scan")
     def scan_button(self) -> None:
         self.scan_devices()
-
-    @on(Button.Pressed, "#toggle-all")
-    def toggle_all(self) -> None:
-        self.show_all = not self.show_all
-        self.query_one("#toggle-all", Button).label = (
-            "Hide unrelated" if self.show_all else "Show all devices"
-        )
-        self._render_scan()
-
-    def action_toggle_all(self) -> None:
-        if self.query_one("#discovery").display:
-            self.toggle_all()
-
-    @on(OptionList.OptionSelected, "#scan-results")
-    def select_device(self, event: OptionList.OptionSelected) -> None:
-        if event.option.id:
-            self.query_one("#address", Input).value = event.option.id
-            self.connect_lock(event.option.id)
 
     @work(group="scan", exclusive=True)
     async def scan_devices(self) -> None:
@@ -249,46 +225,23 @@ class EntrBleApp(App[None], inherit_bindings=False):
         self._scan_items = items
         self._render_scan()
 
-    def _render_scan(self) -> None:
-        options = self.query_one("#scan-results", OptionList)
-        options.clear_options()
-        visible = [item for item in self._scan_items if item.is_lock or self.show_all]
-        options.add_options(
-            Option(Text(item.label), id=item.address) for item in visible
-        )
-        locks = sum(item.is_lock for item in self._scan_items)
-        others = len(self._scan_items) - locks
-        detail = f"{others} other devices" if self.show_all else f"{others} hidden"
-        if not self._scanning:
-            self._set_connection_status(
-                f"{locks} {'lock' if locks == 1 else 'locks'} · {detail}"
-            )
+    def action_toggle_all(self) -> None:
+        if self.query_one("#discovery").display:
+            self.toggle_all()
 
-    @work(group="connection")
-    async def connect_lock(self, address: str) -> None:
-        if self._connecting:
-            return
-        self._connecting = True
-        async with self._session_lock:
-            try:
-                await self._close_session()
-                self._show_discovery()
-                self._set_loading(True)
-                self._set_connection_status(f"Connecting to {address}…")
-                session = LockSession(address)
-                await session.__aenter__()
-                self.address = address
-                self.session = session
-                self._show_actions()
-                self._show_dashboard()
-                self._set_busy(False)
-                self._set_result("")
-                self._set_connection_status(f"Connected to {address}")
-            except Exception as exc:  # noqa: BLE001
-                self._set_connection_status(f"Could not connect to {address}: {exc}")
-            finally:
-                self._set_loading(False)
-                self._connecting = False
+    @on(Button.Pressed, "#toggle-all")
+    def toggle_all(self) -> None:
+        self.show_all = not self.show_all
+        self.query_one("#toggle-all", Button).label = (
+            "Hide unrelated" if self.show_all else "Show all devices"
+        )
+        self._render_scan()
+
+    @on(OptionList.OptionSelected, "#scan-results")
+    def select_device(self, event: OptionList.OptionSelected) -> None:
+        if event.option.id:
+            self.query_one("#address", Input).value = event.option.id
+            self.connect_lock(event.option.id)
 
     @on(OptionList.OptionSelected, "#actions")
     def action_selected(self, event: OptionList.OptionSelected) -> None:
@@ -308,28 +261,6 @@ class EntrBleApp(App[None], inherit_bindings=False):
             )
         else:
             self.run_lock_action(action, {})
-
-    def _form_done(self, action: Action, values: dict[str, str] | None) -> None:
-        if values is None:
-            return
-        try:
-            kwargs = normalize_values(values)
-        except ValueError as exc:
-            self.notify(str(exc), severity="warning")
-            return
-        if action.destructive:
-            self.push_screen(
-                Confirmation(action.label),
-                lambda confirmed: self._confirmed(action, kwargs, confirmed),
-            )
-        else:
-            self.run_lock_action(action, kwargs)
-
-    def _confirmed(
-        self, action: Action, kwargs: dict[str, object], confirmed: bool | None
-    ) -> None:
-        if confirmed is True:
-            self.run_lock_action(action, kwargs)
 
     @work(group="commands")
     async def run_lock_action(self, action: Action, kwargs: dict[str, object]) -> None:
@@ -366,11 +297,6 @@ class EntrBleApp(App[None], inherit_bindings=False):
     def disconnect_button(self) -> None:
         self.disconnect_lock()
 
-    @on(Button.Pressed, "#reconnect")
-    def reconnect_button(self) -> None:
-        if self.address:
-            self.connect_lock(self.address)
-
     @work(group="connection")
     async def disconnect_lock(self) -> None:
         async with self._session_lock:
@@ -378,14 +304,81 @@ class EntrBleApp(App[None], inherit_bindings=False):
             self._show_discovery()
             self._set_connection_status("Disconnected. Choose a lock to connect.")
 
+    @on(Button.Pressed, "#reconnect")
+    def reconnect_button(self) -> None:
+        if self.address:
+            self.connect_lock(self.address)
+
+    @work(group="connection")
+    async def connect_lock(self, address: str) -> None:
+        if self._connecting:
+            return
+        self._connecting = True
+        async with self._session_lock:
+            try:
+                await self._close_session()
+                self._show_discovery()
+                self._set_loading(True)
+                self._set_connection_status(f"Connecting to {address}…")
+                session = LockSession(address)
+                await session.__aenter__()
+                self.address = address
+                self.session = session
+                self._show_actions()
+                self._show_dashboard()
+                self._set_busy(False)
+                self._set_result("")
+                self._set_connection_status(f"Connected to {address}")
+            except Exception as exc:  # noqa: BLE001
+                self._set_connection_status(f"Could not connect to {address}: {exc}")
+            finally:
+                self._set_loading(False)
+                self._connecting = False
+
     async def on_unmount(self) -> None:
         async with self._session_lock:
             await self._close_session()
+
+    def _check_connection(self) -> None:
+        if self.session is not None and not self.session.connected:
+            self._set_connection_status("Connection lost. Reconnect to continue.")
+            self._set_busy(self.busy)
+
+    def _set_busy(self, busy: bool) -> None:
+        self.busy = busy
+        disconnected = self.session is None or not self.session.connected
+        self.query_one("#actions", OptionList).disabled = busy or disconnected
+
+    def _animate_loading(self) -> None:
+        indicators = self.query("#loading")
+        if not indicators:
+            return
+        indicator = indicators.first(Static)
+        if indicator.display:
+            frames = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+            self._loading_frame = (self._loading_frame + 1) % len(frames)
+            indicator.update(frames[self._loading_frame])
+
+    def _layout_dashboard(self, width: int) -> None:
+        self.query_one("#dashboard-main").set_class(width < 90, "narrow")
 
     async def _close_session(self) -> None:
         if self.session is not None:
             session, self.session = self.session, None
             await session.__aexit__(None, None, None)
+
+    def _show_discovery(self) -> None:
+        self.query_one("#dashboard").display = False
+        self.query_one("#discovery").display = True
+        self.query_one("#title", Static).update("ENTR BLE · F2 all · Ctrl+C quit")
+        self.query_one("#address", Input).focus()
+
+    def _set_loading(self, loading: bool) -> None:
+        indicator = self.query_one("#loading", Static)
+        indicator.display = loading
+        if loading:
+            self._loading_frame = 0
+            indicator.update("⠋")
 
     def _show_actions(self) -> None:
         options = self.query_one("#actions", OptionList)
@@ -404,37 +397,6 @@ class EntrBleApp(App[None], inherit_bindings=False):
             )
         options.add_options(entries)
 
-    def _set_connection_status(self, message: str) -> None:
-        target = (
-            "#lock-status"
-            if self.session and self.query_one("#dashboard").display
-            else "#connection-status"
-        )
-        self.query_one(target, Static).update(message)
-
-    def _set_loading(self, loading: bool) -> None:
-        indicator = self.query_one("#loading", Static)
-        indicator.display = loading
-        if loading:
-            self._loading_frame = 0
-            indicator.update("⠋")
-
-    def _animate_loading(self) -> None:
-        indicators = self.query("#loading")
-        if not indicators:
-            return
-        indicator = indicators.first(Static)
-        if indicator.display:
-            frames = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-            self._loading_frame = (self._loading_frame + 1) % len(frames)
-            indicator.update(frames[self._loading_frame])
-
-    def _show_discovery(self) -> None:
-        self.query_one("#dashboard").display = False
-        self.query_one("#discovery").display = True
-        self.query_one("#title", Static).update("ENTR BLE · F2 all · Ctrl+C quit")
-        self.query_one("#address", Input).focus()
-
     def _show_dashboard(self) -> None:
         self.query_one("#discovery").display = False
         self.query_one("#dashboard").display = True
@@ -445,15 +407,53 @@ class EntrBleApp(App[None], inherit_bindings=False):
         self.query_one("#result-panel").display = bool(message)
         self.query_one("#result", Static).update(message)
 
-    def _layout_dashboard(self, width: int) -> None:
-        self.query_one("#dashboard-main").set_class(width < 90, "narrow")
+    def _render_scan(self) -> None:
+        options = self.query_one("#scan-results", OptionList)
+        options.clear_options()
+        visible = [item for item in self._scan_items if item.is_lock or self.show_all]
+        options.add_options(
+            Option(Text(item.label), id=item.address) for item in visible
+        )
+        locks = sum(item.is_lock for item in self._scan_items)
+        others = len(self._scan_items) - locks
+        detail = f"{others} other devices" if self.show_all else f"{others} hidden"
+        if not self._scanning:
+            self._set_connection_status(
+                f"{locks} {'lock' if locks == 1 else 'locks'} · {detail}"
+            )
 
-    def _set_busy(self, busy: bool) -> None:
-        self.busy = busy
-        disconnected = self.session is None or not self.session.connected
-        self.query_one("#actions", OptionList).disabled = busy or disconnected
+    def _set_connection_status(self, message: str) -> None:
+        target = (
+            "#lock-status"
+            if self.session and self.query_one("#dashboard").display
+            else "#connection-status"
+        )
+        self.query_one(target, Static).update(message)
 
-    def _check_connection(self) -> None:
-        if self.session is not None and not self.session.connected:
-            self._set_connection_status("Connection lost. Reconnect to continue.")
-            self._set_busy(self.busy)
+    def _connect_address(self, address: str) -> None:
+        if address:
+            self.connect_lock(address)
+        else:
+            self.notify("Enter a Bluetooth address first.", severity="warning")
+
+    def _form_done(self, action: Action, values: dict[str, str] | None) -> None:
+        if values is None:
+            return
+        try:
+            kwargs = normalize_values(values)
+        except ValueError as exc:
+            self.notify(str(exc), severity="warning")
+            return
+        if action.destructive:
+            self.push_screen(
+                Confirmation(action.label),
+                lambda confirmed: self._confirmed(action, kwargs, confirmed),
+            )
+        else:
+            self.run_lock_action(action, kwargs)
+
+    def _confirmed(
+        self, action: Action, kwargs: dict[str, object], confirmed: bool | None
+    ) -> None:
+        if confirmed is True:
+            self.run_lock_action(action, kwargs)

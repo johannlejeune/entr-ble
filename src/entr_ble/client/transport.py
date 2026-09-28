@@ -87,13 +87,6 @@ class EntrLockError(EntrProtocolError):
         super().__init__(f"lock returned error: {category_name} / {detail_name}")
 
 
-def validate_response(payload, command, minimum_length):
-    if not payload or payload[0] != command:
-        raise EntrProtocolError(f"unexpected response to command {command}")
-    if len(payload) < minimum_length:
-        raise EntrProtocolError(f"truncated response to command {command}")
-
-
 class TransportClient:
     def __init__(self, device, timeout=10.0):
         self.address = device.address if isinstance(device, BLEDevice) else device
@@ -302,3 +295,10 @@ class TransportClient:
                 await self.client.write_gatt_char(
                     const.REQUEST_CHAR_PAYLOAD, chunk, response=True
                 )
+
+
+def validate_response(payload, command, minimum_length):
+    if not payload or payload[0] != command:
+        raise EntrProtocolError(f"unexpected response to command {command}")
+    if len(payload) < minimum_length:
+        raise EntrProtocolError(f"truncated response to command {command}")

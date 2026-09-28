@@ -1,6 +1,6 @@
 from entr_ble import const
 
-from .._shared import ROLE_CHOICES
+from ..shared import ROLE_CHOICES
 from .common import handle
 
 

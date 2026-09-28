@@ -1,7 +1,7 @@
 from typing import Any
 
-from ._actions import access, maintenance, settings, users
-from ._shared import CommandError, SessionLike
+from .actions import access, maintenance, settings, users
+from .shared import CommandError, SessionLike
 from .store import LockCredentials
 
 

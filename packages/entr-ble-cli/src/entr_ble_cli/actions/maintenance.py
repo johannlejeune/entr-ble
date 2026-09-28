@@ -2,7 +2,7 @@ from typing import Any
 
 from entr_ble import const
 
-from .._shared import CommandError, SessionLike
+from ..shared import CommandError, SessionLike
 from ..store import LockCredentials
 from ..store import remove as remove_credentials
 

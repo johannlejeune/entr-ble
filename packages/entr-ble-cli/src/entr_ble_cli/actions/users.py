@@ -2,7 +2,7 @@ from typing import Any
 
 from entr_ble import const
 
-from .._shared import (
+from ..shared import (
     CONTROL_UNIT_PIN,
     CONTROL_UNIT_ROLES,
     ROLE_CHOICES,

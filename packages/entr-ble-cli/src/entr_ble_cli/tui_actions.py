@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from entr_ble import const
 
-from ._shared import ROLE_CHOICES, VOLUME_CHOICES
+from .shared import ROLE_CHOICES, VOLUME_CHOICES
 
 
 @dataclass(frozen=True)

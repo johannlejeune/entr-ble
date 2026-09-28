@@ -2,7 +2,7 @@ from typing import Any
 
 from entr_ble.client import build_lock_name, settings_status_byte
 
-from .._shared import VOLUME_CHOICES, CommandError, SessionLike, require_admin
+from ..shared import VOLUME_CHOICES, CommandError, SessionLike, require_admin
 from ..store import LockCredentials
 from ..store import put as put_credentials
 
