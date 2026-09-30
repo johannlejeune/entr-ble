@@ -1,11 +1,11 @@
 # ENTR BLE
 
-This repository contains a Python library for ENTR Bluetooth locks, a terminal interface and CLI, and a Home Assistant custom integration. It is an independent project, not an official ASSA ABLOY integration.
+This repository contains a Python library and command-line interface for ENTR Bluetooth locks, and a Home Assistant custom integration. It is an independent project, not an official ASSA ABLOY integration.
 
 ## Packages
 
 - `src/entr_ble`: BLE protocol, pairing, lock operations, and response decoding; distributed as `entr-ble`.
-- `packages/entr-ble-cli`: terminal commands and the local credentials store; distributed as `entr-ble-cli` and provides the `entr-ble` command.
+- `packages/entr-ble-cli`: command-line tools and the local credentials store; distributed as `entr-ble-cli` and provides the `entr-ble` command.
 - `custom_components/entr_ble`: Home Assistant integration; installed through HACS after the library is published.
 
 The library has no dependency on the CLI or Home Assistant. Both frontends use the same library API.
@@ -17,10 +17,9 @@ Use Python 3.14 or newer, [uv](https://docs.astral.sh/uv/getting-started/install
 ```sh
 uv sync --locked --all-packages
 uv run --package entr-ble-cli entr-ble --help
-uv run --package entr-ble-cli entr-ble
 ```
 
-The last command opens the TUI. See the [CLI guide](packages/entr-ble-cli/README.md) for navigation and [feature coverage](docs/FEATURES.md) for available operations. Ownership recovery replaces the previous owner's credential; redeem an additional user key to keep the existing owner.
+See the [CLI guide](packages/entr-ble-cli/README.md) for available commands and [feature coverage](docs/FEATURES.md) for supported operations. Ownership recovery replaces the previous owner's credential; redeem an additional user key to keep the existing owner.
 
 The CLI stores credentials in `~/.config/entr-ble/credentials.json` unless `ENTR_BLE_STORE` is set. This file contains secrets that grant access to the lock; keep it private and out of Git. The `entr-ble-cli` package provides the terminal command; `entr-ble` alone installs only the library.
 
