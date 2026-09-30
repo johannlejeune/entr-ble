@@ -1,6 +1,6 @@
 # ENTR BLE feature coverage
 
-This document tracks the commands implemented by the library and exposed through the CLI. Firmware support varies by lock model; see [protocol notes](PROTOCOL.md) for frame details.
+This document lists the features supported by the library and CLI. Firmware support varies by lock model; see [protocol notes](PROTOCOL.md) for frame details.
 
 | Feature | Protocol command | CLI command | Notes |
 |---|---|---|---|
@@ -20,8 +20,9 @@ This document tracks the commands implemented by the library and exposed through
 | Read model, device id and firmware versions | GET_DEVICE_INFO (45) | `device-info` | Requires the FOTA GATT service and comm version 1.29r3 or newer. |
 | Read the audit trail | GET_DATA (81) | `audit-trail` | NIZ firmware only. |
 | Read the firmware error log | GET_ERRORS (49) | `get-errors` | Requires the FOTA GATT service. |
+| Export credentials for Home Assistant | Local credentials store | `export-homeassistant` | Prints one lock's saved credentials as JSON without connecting. |
 
-ECDH pairing, the encrypted handshake, communication-version reading and KDF resynchronization are handled internally by the client.
+The CLI handles pairing, the encrypted handshake, communication-version reading, and restoration of saved sessions through the library client. Admin passwords are prompted without echo or supplied with `-p` / `--password`. Progress appears on stderr; `-q` / `--quiet` hides it. See the [CLI guide](../packages/entr-ble-cli/README.md) for command usage.
 
 ## Initial setup
 
@@ -39,6 +40,6 @@ Radio accessories use user roles 3, 4 and 5 for remote controls, wall readers an
 
 OP_DEVICE_CONFIG carries the current lock name and settings status. The CLI reads the current configuration before sending changes. NIZ firmware adds wall-reader and integration-unit status bytes to this frame.
 
-The audit trail reads a record count and then streams records until a final marker. GET_ERRORS uses an eight-byte query whose meaning is unknown; a tested ENTR EURO returned the same empty log for different query contents. Protocol command failures are not included in that log.
+The audit trail reads a record count and then streams records until a final marker. GET_ERRORS uses an eight-byte query whose meaning is unknown; on the tested ENTR EURO, it produces the same empty log for the tested query values. Protocol command failures are not included in that log.
 
 Firmware update transfer and the pending-key commands 33, 35 and 37 are not implemented. Their request or response behavior is not established here.

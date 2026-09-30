@@ -14,7 +14,7 @@ Advertisements include product id `0xE7`. The next byte contains the advertiseme
 
 ECDH uses secp256r1. The client sends a 64-byte raw public key (`x‖y`, command 10); the lock returns a public key and IV. The session key is `SHA-256(shared secret)[:16]`. Sensitive commands use AES-128-CBC with PKCS7 padding inside command 120 (`GENERAL_ENCRYPTED`). The first IV byte travels with each message, while the remaining 15 bytes stay fixed for the session.
 
-Every connection resynchronizes through KDF command 14 with `[kdf_id, role]`. The lock returns a fresh IV, signature and status. A client must retain the AES key, KDF id, application id, user id and lock key needed for later connections.
+Connections using saved credentials resynchronize through KDF command 14 with `[kdf_id, role]`. The lock returns a fresh IV, signature and status. A client must retain the AES key, KDF id, application id, user id and lock key needed for later connections.
 
 ## Ownership and users
 
@@ -67,7 +67,7 @@ A valid battery percentage takes precedence over the battery state bits. The pas
 
 GET_LOCK_SN reports firmware mode 0 ENTR_EURO, 1 ENTR_DB, 2 ENTR_S/Yale, 3–4 bridge variants and 7 ENTR_HK. ENTR_S/Yale GET_DEVICE_CONFIG responses include wall-reader status, integration-unit status, door direction and lock type; ENTR_EURO responses omit these fields.
 
-GET_DEVICE_INFO requires the FOTA GATT service and communication version 1.29r3 or newer in this client. Older locks require an additional FOTA IV exchange that is not implemented. GET_ERRORS takes an eight-byte query of unknown meaning; a tested ENTR EURO returned the same empty dump for different query contents. Protocol errors do not appear in that log.
+GET_DEVICE_INFO requires the FOTA GATT service and communication version 1.29r3 or newer in this client. Older locks require an additional FOTA IV exchange that is not implemented. GET_ERRORS takes an eight-byte query of unknown meaning; on the tested ENTR EURO, it produces the same empty dump for the tested query values. Protocol errors do not appear in that log.
 
 GET_DATA type 3 reads the audit record count. Type 1 streams records as TLV entries with date, user, credential and event fields until a final `0xFF` marker. NIZ locks use factory audit code `Aa1111`.
 

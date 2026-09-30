@@ -1,6 +1,6 @@
 # ENTR BLE
 
-This repository contains a Python library and command-line interface for ENTR Bluetooth locks, and a Home Assistant custom integration. It is an independent project, not an official ASSA ABLOY integration.
+This repository contains a Python library, command-line interface, and Home Assistant custom integration for ENTR Bluetooth locks. It is an independent project, not an official ASSA ABLOY integration.
 
 ## Packages
 
@@ -12,7 +12,7 @@ The library has no dependency on the CLI or Home Assistant. Both frontends use t
 
 ## Getting started
 
-Use Python 3.14 or newer, [uv](https://docs.astral.sh/uv/getting-started/installation/), and a working Bluetooth adapter. On Linux, Bluetooth access requires BlueZ and access to the system D-Bus. Run these commands from the repository:
+Use Python 3.14 or newer and [uv](https://docs.astral.sh/uv/getting-started/installation/). Commands that communicate with a lock require a working Bluetooth adapter. On Linux, Bluetooth access requires BlueZ and access to the system D-Bus. Run these commands from the repository:
 
 ```sh
 uv sync --locked --all-packages
@@ -25,7 +25,7 @@ The CLI stores credentials in `~/.config/entr-ble/credentials.json` unless `ENTR
 
 ## Library
 
-The asynchronous client accepts a Bluetooth address or a Bleak `BLEDevice`. For a previously provisioned lock, restore the saved session before reading its configuration:
+The asynchronous client accepts a Bluetooth address or a Bleak `BLEDevice`. For a lock with saved credentials, restore the saved session before reading its configuration:
 
 ```python
 from entr_ble import EntrLockClient
@@ -57,13 +57,21 @@ uv run --no-sync python -m unittest discover -s packages/entr-ble-cli/tests -v
 uv build --all-packages --no-sources
 ```
 
-These checks also run in GitHub Actions. Building produces separate library and CLI wheels and source distributions in `dist/`. Hardware behavior still needs verification on the target lock; documented observations come from an ENTR EURO with communication version 1.29r5.
+These checks also run in GitHub Actions. Building produces separate library and CLI wheels and source distributions in `dist/`. Verify hardware behavior on the target lock; documented observations come from an ENTR EURO with communication version 1.29r5.
 
 ## Home Assistant
 
-The setup flow can scan for a nearby lock or accept its Bluetooth address. Choose **Make Home Assistant the owner** to replace the current mobile owner with its admin code, or to initialize a new lock. Replacing the owner revokes the mobile app's owner credential. Choose **Use an additional user key** to redeem a key created by the current owner and keep the mobile app in control. Existing CLI credentials can still be imported; the integration stores its own copy and does not read the CLI's credentials file.
+The setup flow can scan for a nearby lock or accept its Bluetooth address. Choose **Make Home Assistant the owner** to replace the current mobile owner with its admin code, or to initialize a new lock. Replacing the owner revokes the mobile app's owner credential. Choose **Use an additional user key** to redeem a key created by the current owner and keep the mobile app in control.
 
-The integration exposes lock, battery, direct Lock and Unlock buttons, and a Sync button under Diagnostics. The lock also supports Home Assistant's `lock.open` action, which sends `UNLOCK` even when the displayed state is already unlocked. It restores the last displayed values after a restart, then makes one background BLE read and disconnects. A successful read replaces the restored lock state and updates the battery; a failed read changes nothing. Later connections happen only for a command or a manual Sync. Lock and Unlock display the commanded state after success. Sync replaces the displayed state with the lock's reported state, which may still be stale after manual operation; the direct buttons send commands regardless of that state. Its `entr-ble` requirement must be available from a package index, and the integration manifest needs real project URLs, before HACS can install it automatically. See [protocol notes](docs/PROTOCOL.md) for other firmware limitations.
+To use a key saved by the CLI, run `entr-ble export-homeassistant ADDRESS` and choose **Import existing credentials** in the integration setup. Enter the same address and paste the JSON output into **Credentials JSON**. The integration stores its own copy of the credentials.
+
+The integration exposes a lock, battery sensor, direct Lock and Unlock buttons, and a Sync button under Diagnostics. The lock supports Home Assistant's `lock.open` action, which sends `UNLOCK` even when the displayed state is already unlocked.
+
+After a restart, the integration restores the last displayed values, makes one background BLE read, and disconnects. A successful read replaces the restored lock state and updates the battery; a failed read leaves the displayed values unchanged. Further connections happen only for a command or a manual Sync.
+
+Lock and Unlock display the commanded state after success. Sync replaces the displayed state with the lock's reported state, which may be stale after manual operation; the direct buttons send commands regardless of that state. See [protocol notes](docs/PROTOCOL.md) for firmware limitations.
+
+Automatic HACS installation requires the `entr-ble` dependency on a package index and real project URLs in the integration manifest.
 
 ## Publication
 
