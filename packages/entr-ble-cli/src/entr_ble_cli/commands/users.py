@@ -98,7 +98,7 @@ async def run(client, creds, args) -> list[str]:
             ]
         return lines + [
             f"key code: {key_code}",
-            f"redeem it within {expiration}h with: entr-ble activate {creds.address} {key_code}",
+            f"redeem it within {expiration}h with: entr-ble-cli activate {creds.address} {key_code}",
         ]
     if args.command == "set-admin-code":
         if creds.role != const.ROLE_ADMIN:

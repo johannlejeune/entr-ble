@@ -48,20 +48,20 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
 def main() -> None:
     groups = []
     parser = argparse.ArgumentParser(
-        prog="entr-ble",
+        prog="entr-ble-cli",
         description="Set up and control an ENTR Bluetooth lock.",
         usage="%(prog)s [options] COMMAND ...",
         formatter_class=lambda prog: HelpFormatter(prog, groups),
         epilog=(
             "Getting started:\n"
-            "  1. Find your lock: entr-ble scan\n"
+            "  1. Find your lock: entr-ble-cli scan\n"
             "  2. Set up access with set-owner (new lock), enroll (replace the owner),\n"
             "     or activate (use a key supplied by the owner).\n"
-            "  3. Read its status: entr-ble status ADDRESS\n\n"
+            "  3. Read its status: entr-ble-cli status ADDRESS\n\n"
             "Replace ADDRESS with the Bluetooth address printed by scan.\n"
             "For a command's arguments and options, run:\n"
-            "  entr-ble COMMAND --help\n\n"
-            "Example: entr-ble unlock AA:BB:CC:DD:EE:FF"
+            "  entr-ble-cli COMMAND --help\n\n"
+            "Example: entr-ble-cli unlock AA:BB:CC:DD:EE:FF"
         ),
     )
     parser.add_argument(
@@ -116,7 +116,7 @@ def error_message(exc):
             return "Bluetooth access was denied. Allow this application to use Bluetooth and try again."
         return "Bluetooth is unavailable. Check that a Bluetooth adapter is connected and enabled."
     if isinstance(exc, BleakDeviceNotFoundError):
-        return "The lock could not be found. Move closer and run 'entr-ble scan' to check its address."
+        return "The lock could not be found. Move closer and run 'entr-ble-cli scan' to check its address."
     if isinstance(exc, TimeoutError):
         return "Bluetooth communication timed out. Move closer to the lock and check that Bluetooth is enabled."
     if isinstance(exc, BleakError):

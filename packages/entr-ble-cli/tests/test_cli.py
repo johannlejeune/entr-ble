@@ -18,7 +18,7 @@ from entr_ble import EntrLockError, EntrProtocolError
 class CliTests(unittest.TestCase):
     def test_missing_command_lists_commands_and_guidance_without_connecting(self):
         with (
-            patch("sys.argv", ["entr-ble"]),
+            patch("sys.argv", ["entr-ble-cli"]),
             patch.object(cli, "handle", AsyncMock()) as handle,
             patch("sys.stdout") as stdout,
         ):
@@ -26,7 +26,7 @@ class CliTests(unittest.TestCase):
         help_text = "".join(call.args[0] for call in stdout.write.call_args_list)
         self.assertIn("commands:", help_text)
         self.assertIn("Getting started:", help_text)
-        self.assertIn("entr-ble COMMAND --help", help_text)
+        self.assertIn("entr-ble-cli COMMAND --help", help_text)
         self.assertNotIn("{scan,", help_text)
         headings = (
             "Discovery and setup:",
@@ -85,7 +85,7 @@ class CliTests(unittest.TestCase):
         ):
             with (
                 self.subTest(error=error),
-                patch("sys.argv", ["entr-ble", "scan"]),
+                patch("sys.argv", ["entr-ble-cli", "scan"]),
                 patch.object(cli, "handle", AsyncMock(side_effect=error)),
                 patch("sys.stderr") as stderr,
                 self.assertRaises(SystemExit) as caught,
@@ -99,7 +99,7 @@ class CliTests(unittest.TestCase):
 
     def test_internal_errors_propagate(self):
         with (
-            patch("sys.argv", ["entr-ble", "scan"]),
+            patch("sys.argv", ["entr-ble-cli", "scan"]),
             patch.object(cli, "handle", AsyncMock(side_effect=RuntimeError("bug"))),
             self.assertRaisesRegex(RuntimeError, "bug"),
         ):
@@ -114,7 +114,7 @@ class CliTests(unittest.TestCase):
             raise BleakError("raw error")
 
         with (
-            patch("sys.argv", ["entr-ble", "--quiet", "scan"]),
+            patch("sys.argv", ["entr-ble-cli", "--quiet", "scan"]),
             patch.object(cli, "handle", handle),
             patch("sys.stderr") as stderr,
             self.assertRaises(SystemExit) as caught,
@@ -142,7 +142,7 @@ class CliTests(unittest.TestCase):
         ):
             with (
                 self.subTest(arguments=arguments),
-                patch("sys.argv", ["entr-ble", *arguments]),
+                patch("sys.argv", ["entr-ble-cli", *arguments]),
                 patch.object(cli, "handle", handle),
                 patch("sys.stderr") as stderr,
                 patch("sys.stdout") as stdout,

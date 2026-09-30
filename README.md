@@ -15,7 +15,7 @@
 | Use ENTR BLE to… | Start here | Component |
 | --- | --- | --- |
 | Control a lock from dashboards and automations | [Home Assistant guide](custom_components/entr_ble/README.md) | HACS custom integration |
-| Set up a lock, manage keys, or control it from a terminal | [CLI guide](packages/entr-ble-cli/README.md) | `entr-ble-cli` → `entr-ble` command |
+| Set up a lock, manage keys, or control it from a terminal | [CLI guide](packages/entr-ble-cli/README.md) | `entr-ble-cli` command |
 | Build your own application | [Python library guide](src/entr_ble/README.md) | `entr-ble` → `EntrLockClient` |
 
 The library is independent of the CLI and Home Assistant. Both frontends use its asynchronous API for pairing, encrypted sessions, and lock operations.

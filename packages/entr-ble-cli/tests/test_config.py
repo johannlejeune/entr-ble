@@ -33,7 +33,7 @@ class ExportTests(unittest.TestCase):
         store.put(other, self.path)
         original = self.path.read_bytes()
         with (
-            patch("sys.argv", ["entr-ble", "export-homeassistant", "aa"]),
+            patch("sys.argv", ["entr-ble-cli", "export-homeassistant", "aa"]),
             patch.object(
                 config,
                 "get_credentials",
@@ -58,7 +58,7 @@ class ExportTests(unittest.TestCase):
 
     def test_missing_credentials_show_guidance_without_printing_json(self):
         with (
-            patch("sys.argv", ["entr-ble", "export-homeassistant", "BB"]),
+            patch("sys.argv", ["entr-ble-cli", "export-homeassistant", "BB"]),
             patch.object(config, "get_credentials", return_value=None),
             patch("sys.stdout", new_callable=io.StringIO) as stdout,
             patch("sys.stderr", new_callable=io.StringIO) as stderr,

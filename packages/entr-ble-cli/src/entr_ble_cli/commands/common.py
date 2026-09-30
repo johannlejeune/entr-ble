@@ -28,7 +28,7 @@ async def handle(args: argparse.Namespace) -> None:
         credentials = get_credentials(args.address)
         if credentials is None and not getattr(args, "setup", False):
             raise CommandError(
-                f"No saved key for {args.address}. Run 'entr-ble activate --help' to use an existing key, or 'entr-ble enroll --help' to become the owner."
+                f"No saved key for {args.address}. Run 'entr-ble-cli activate --help' to use an existing key, or 'entr-ble-cli enroll --help' to become the owner."
             )
         if hasattr(args, "admin_code"):
             if args.admin_code is None:

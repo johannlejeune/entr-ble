@@ -13,24 +13,24 @@ Install the CLI as an isolated tool directly from this repository:
 ```sh
 uv tool install "git+https://github.com/johannlejeune/entr-ble.git#subdirectory=packages/entr-ble-cli" \
   --with "entr-ble @ git+https://github.com/johannlejeune/entr-ble.git"
-entr-ble --help
+entr-ble-cli --help
 ```
 
 Alternatively, from a checkout, run:
 
 ```sh
 uv sync --locked --package entr-ble-cli
-uv run --package entr-ble-cli entr-ble --help
+uv run --package entr-ble-cli entr-ble-cli --help
 ```
 
-For the checkout workflow, prefix the commands below with `uv run --package entr-ble-cli`. The `entr-ble-cli` package supplies the `entr-ble` command; installing the `entr-ble` library alone does not.
+For the checkout workflow, prefix the commands below with `uv run --package entr-ble-cli`. The `entr-ble-cli` package supplies the `entr-ble-cli` command; installing the `entr-ble` library alone does not.
 
 ## Quick start
 
 ### 1. Find your lock
 
 ```sh
-entr-ble scan
+entr-ble-cli scan
 ```
 
 The scan lists each lock's address, advertised name, initialization state, and signal strength. Replace `ADDRESS` in the examples below with the exact address shown by your scan.
@@ -38,8 +38,8 @@ The scan lists each lock's address, advertised name, initialization state, and s
 For a longer scan, or to include other BLE devices:
 
 ```sh
-entr-ble scan --timeout 10
-entr-ble scan --all
+entr-ble-cli scan --timeout 10
+entr-ble-cli scan --all
 ```
 
 ### 2. Choose how to access the lock
@@ -48,23 +48,23 @@ Run **one** of the following setup commands. Each saves the resulting credential
 
 | Your situation | Command | Effect |
 | --- | --- | --- |
-| New, uninitialized lock | `entr-ble set-owner ADDRESS --name "Front door"` | Creates the first owner and asks for a new password |
-| Initialized lock; you want owner access | `entr-ble enroll ADDRESS --name "Front door"` | Asks for the current owner password and replaces the owner credential |
-| You have an activation code from the owner | `entr-ble activate ADDRESS KEY_CODE` | Redeems an additional key while preserving the owner |
+| New, uninitialized lock | `entr-ble-cli set-owner ADDRESS --name "Front door"` | Creates the first owner and asks for a new password |
+| Initialized lock; you want owner access | `entr-ble-cli enroll ADDRESS --name "Front door"` | Asks for the current owner password and replaces the owner credential |
+| You have an activation code from the owner | `entr-ble-cli activate ADDRESS KEY_CODE` | Redeems an additional key while preserving the owner |
 
 > [!WARNING]
 > `enroll` replaces the lock's single owner slot. The previous owner, including the mobile app if it holds that slot, loses access. Use `activate` to keep the existing owner.
 
 `KEY_CODE` is the six-character code supplied by the owner. A setup command refuses to overwrite credentials already saved for that address.
 
-For a new lock, `--name` accepts up to 12 bytes. `--user` sets the owner name, and `--provider` selects the brand id; see `entr-ble set-owner --help`. After initial setup, an uncalibrated lock needs `calibrate` followed by `magnet-calibrate` with the door magnet in place.
+For a new lock, `--name` accepts up to 12 bytes. `--user` sets the owner name, and `--provider` selects the brand id; see `entr-ble-cli set-owner --help`. After initial setup, an uncalibrated lock needs `calibrate` followed by `magnet-calibrate` with the door magnet in place.
 
 ### 3. Read status and control the lock
 
 ```sh
-entr-ble status ADDRESS
-entr-ble unlock ADDRESS
-entr-ble lock ADDRESS
+entr-ble-cli status ADDRESS
+entr-ble-cli unlock ADDRESS
+entr-ble-cli lock ADDRESS
 ```
 
 Commands restore your saved session and close the Bluetooth connection when finished. Unlock behavior follows the lock's auto-lock setting. Reported state can be stale after manual operation; see [protocol limitations](../../docs/PROTOCOL.md).
@@ -76,7 +76,7 @@ Commands restore your saved session and close the Bluetooth connection when fini
 With an owner or admin key, create a user:
 
 ```sh
-entr-ble create-user ADDRESS Guest
+entr-ble-cli create-user ADDRESS Guest
 ```
 
 The command asks for the admin password and prints an activation code and the command to redeem it. Run that activation command on the recipient's machine with its own credential store.
@@ -84,10 +84,10 @@ The command asks for the admin password and prints an activation code and the co
 The code stays redeemable for **three hours by default**. `--expiration` changes that window; the activated key does not expire when the code's redemption window ends.
 
 ```sh
-entr-ble list-users ADDRESS
-entr-ble disable-user ADDRESS Guest
-entr-ble enable-user ADDRESS Guest
-entr-ble delete-user ADDRESS Guest
+entr-ble-cli list-users ADDRESS
+entr-ble-cli disable-user ADDRESS Guest
+entr-ble-cli enable-user ADDRESS Guest
+entr-ble-cli delete-user ADDRESS Guest
 ```
 
 Disable suspends a key; enable restores it; delete permanently revokes it. `create-user --role admin` creates an admin key. After activation, that admin uses `set-admin-code` to set its personal password. Accessory roles are also available; radio pairing happens on the hardware, as described in [feature coverage](../../docs/FEATURES.md#users-and-accessories).
@@ -95,8 +95,8 @@ Disable suspends a key; enable restores it; delete permanently revokes it. `crea
 ### Change settings
 
 ```sh
-entr-ble settings ADDRESS --volume medium --auto-lock on
-entr-ble change-admin-code ADDRESS
+entr-ble-cli settings ADDRESS --volume medium --auto-lock on
+entr-ble-cli change-admin-code ADDRESS
 ```
 
 Volume choices are `high`, `medium`, `low`, and `muted`. These commands require an owner or admin key. The CLI reads the current configuration before applying changes. If the lock name was not saved during enrollment, pass `--name "Front door"` once; the CLI saves it for later settings commands.
@@ -104,7 +104,7 @@ Volume choices are `high`, `medium`, `low`, and `muted`. These commands require 
 ### Bring an existing key into Home Assistant
 
 ```sh
-entr-ble export-homeassistant ADDRESS
+entr-ble-cli export-homeassistant ADDRESS
 ```
 
 In the [integration setup](../../custom_components/entr_ble/README.md#use-credentials-from-the-cli), choose **Import existing credentials**, enter the same address, and paste the output into **Credentials JSON**.
@@ -113,7 +113,7 @@ Export reads the local store without connecting to the lock or changing credenti
 
 ## Command reference
 
-Run `entr-ble` to see grouped help, or `entr-ble COMMAND --help` for arguments and options. All lock commands below take `ADDRESS`; `scan` does not.
+Run `entr-ble-cli` to see grouped help, or `entr-ble-cli COMMAND --help` for arguments and options. All lock commands below take `ADDRESS`; `scan` does not.
 
 | Group | Commands | Purpose |
 | --- | --- | --- |
@@ -140,8 +140,8 @@ For scripts without a terminal, use `-p PASSWORD` or `--password PASSWORD`. For 
 Results go to **stdout**, progress to **stderr**. Add `-q` or `--quiet` before or after a command to suppress progress while keeping warnings and errors:
 
 ```sh
-entr-ble --quiet status ADDRESS > status.txt
-entr-ble status ADDRESS --quiet
+entr-ble-cli --quiet status ADDRESS > status.txt
+entr-ble-cli status ADDRESS --quiet
 ```
 
 Expected Bluetooth and lock failures produce a short error and exit with code `1`; interrupted input exits with `130`. Unexpected internal errors retain their traceback. Ordinary command output is human-readable; `export-homeassistant` produces JSON.
@@ -159,7 +159,7 @@ Keep the store private, backed up securely, and out of version control. Use one 
 
 ```sh
 export ENTR_BLE_STORE="$HOME/.config/entr-ble/guest.json"
-entr-ble activate ADDRESS KEY_CODE
+entr-ble-cli activate ADDRESS KEY_CODE
 ```
 
 Subsequent commands in that shell use the alternate store.

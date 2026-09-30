@@ -47,7 +47,7 @@ For an additional key, first create a user for Home Assistant in the mobile app 
 On the machine holding the saved key:
 
 ```sh
-entr-ble export-homeassistant ADDRESS
+entr-ble-cli export-homeassistant ADDRESS
 ```
 
 In the integration's initial setup menu, choose **Import existing credentials**, enter the same Bluetooth address, and paste the output into **Credentials JSON**.
