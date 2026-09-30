@@ -10,6 +10,8 @@ Credentials are stored locally in `~/.config/entr-ble/credentials.json`, with ac
 
 Writes replace the credentials file atomically. Use one process at a time when modifying a shared store; concurrent writers are not coordinated.
 
+To import a saved key into Home Assistant, run `entr-ble export-homeassistant ADDRESS`. In the ENTR BLE integration's setup, choose **Import existing credentials**, enter the same Bluetooth address, and paste the command's JSON output into the credentials JSON field. Export reads the local store without connecting to the lock or changing credentials. The JSON contains your access keys; keep it private.
+
 Owner enrollment replaces the lock's current owner slot. A factory reset erases lock users and settings and removes the local credentials after success; it asks for confirmation unless `--yes` is supplied. Passwords passed as command arguments may be recorded in shell history.
 
 Run the CLI tests without Bluetooth hardware with `uv run --package entr-ble-cli python -m unittest discover -s packages/entr-ble-cli/tests` from the repository root.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import sys
 import unittest
@@ -9,6 +10,8 @@ from typing import ClassVar, cast
 from unittest.mock import AsyncMock, Mock, patch
 
 from bleak.exc import BleakError
+from entr_ble_cli.commands import config
+from entr_ble_cli.store import LockCredentials
 from homeassistant import components
 from homeassistant.components.lock import LockEntityFeature, LockState
 from homeassistant.components.sensor import RestoreSensor
@@ -93,6 +96,27 @@ class FakeClient:
 
 
 class HacsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cli_export_matches_home_assistant_import_format(self):
+        credentials = LockCredentials(
+            "AA",
+            "01" * 16,
+            "02" * 16,
+            "03" * 32,
+            4,
+            "04" * 16,
+            "1.29r3",
+            lock_name="Front",
+        )
+        with (
+            patch.object(config, "get_credentials", return_value=credentials),
+            patch("sys.stdout", new_callable=io.StringIO) as stdout,
+        ):
+            config.run(SimpleNamespace(address="AA"))
+        imported = config_flow._credentials(
+            {"address": "aa", "credentials_json": stdout.getvalue()}
+        )
+        self.assertEqual(imported, json.loads(stdout.getvalue()))
+
     async def test_import_credentials_validates_untrusted_json(self):
         credentials = {
             "app_id": "aa" * 16,

@@ -11,7 +11,16 @@ from bleak.exc import (
 
 from entr_ble import EntrLockError, EntrProtocolError
 
-from .commands import access, discovery, maintenance, settings, setup, status, users
+from .commands import (
+    access,
+    config,
+    discovery,
+    maintenance,
+    settings,
+    setup,
+    status,
+    users,
+)
 from .commands.common import handle
 from .shared import CommandError
 
@@ -29,7 +38,7 @@ def main() -> None:
             "     or activate (use a key supplied by the owner).\n"
             "  3. Read its status: entr-ble status ADDRESS\n\n"
             "Replace ADDRESS with the Bluetooth address printed by scan.\n"
-            "For a command's options and examples of required arguments, run:\n"
+            "For a command's arguments and options, run:\n"
             "  entr-ble COMMAND --help\n\n"
             "Example: entr-ble unlock AA:BB:CC:DD:EE:FF"
         ),
@@ -38,7 +47,16 @@ def main() -> None:
         "-v", "--verbose", action="store_true", help="show progress while working"
     )
     sub = parser.add_subparsers(dest="command", title="commands", metavar="COMMAND")
-    for module in (discovery, setup, access, users, settings, status, maintenance):
+    for module in (
+        discovery,
+        setup,
+        access,
+        users,
+        settings,
+        status,
+        maintenance,
+        config,
+    ):
         module.register(sub)
     for command in sub.choices.values():
         command.add_argument(
@@ -57,7 +75,10 @@ def main() -> None:
     logger.setLevel(logging.INFO if args.verbose else logging.WARNING)
     logger.propagate = False
     try:
-        asyncio.run(handle(args))
+        if args.command == "export-homeassistant":
+            config.run(args)
+        else:
+            asyncio.run(handle(args))
     except (CommandError, EntrProtocolError, BleakError, OSError, ValueError) as exc:
         parser.exit(1, f"Error: {error_message(exc)}\n")
     except KeyboardInterrupt, EOFError:
