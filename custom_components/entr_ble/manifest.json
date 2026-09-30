@@ -8,7 +8,7 @@
   "dependencies": [
     "bluetooth"
   ],
-  "documentation": "https://github.com/johannlejeune/entr-ble",
+  "documentation": "https://github.com/johannlejeune/entr-ble/blob/main/custom_components/entr_ble/README.md",
   "integration_type": "device",
   "iot_class": "assumed_state",
   "issue_tracker": "https://github.com/johannlejeune/entr-ble/issues",
