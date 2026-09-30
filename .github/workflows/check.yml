@@ -22,11 +22,13 @@ jobs:
   lint:
     name: Lint and types
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: astral-sh/setup-uv@v10.2.0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
       - run: uv sync --locked --all-packages --group hacs
@@ -37,6 +39,7 @@ jobs:
   test:
     name: Test ${{ matrix.package }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -48,10 +51,11 @@ jobs:
             directory: packages/entr-ble-cli/tests
             pattern: test_*.py
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: astral-sh/setup-uv@v10.2.0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
       - run: uv sync --locked --all-packages --no-dev
@@ -64,11 +68,13 @@ jobs:
   homeassistant:
     name: Test Home Assistant
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: astral-sh/setup-uv@v10.2.0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
       - run: uv sync --locked --all-packages --group hacs --no-dev
@@ -77,13 +83,15 @@ jobs:
   build:
     name: Build packages
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: astral-sh/setup-uv@v10.2.0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - run: uv build --all-packages --no-sources
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: python-packages
           path: dist/*
@@ -92,18 +100,21 @@ jobs:
   hassfest:
     name: Hassfest
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - name: Validate integration
         run: docker run --rm -v "$GITHUB_WORKSPACE:/github/workspace" ghcr.io/home-assistant/hassfest:2026.9.3
 
   hacs:
     name: HACS validation
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: hacs/action@22.5.0
+      - uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
         with:
           category: integration
           comment: false
