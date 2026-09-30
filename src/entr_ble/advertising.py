@@ -1,7 +1,7 @@
 """Decoding of the ENTR BLE advertisement.
 
-Locks broadcast their name and initialisation state in the clear, so a scan can
-identify them without connecting or authenticating.
+Locks broadcast their name and initialisation state in the clear, so a scan can identify
+them without connecting or authenticating.
 """
 
 from dataclasses import dataclass
@@ -11,6 +11,10 @@ from . import const
 
 @dataclass
 class LockAdvertisement:
+    """A discovered lock's BLE address, decoded name, raw state/version nibbles, and
+    RSSI in dBm.
+    """
+
     address: str
     name: str
     lock_state: int
@@ -19,6 +23,9 @@ class LockAdvertisement:
 
     @property
     def state_name(self) -> str:
+        """Return the known state label, or ``unknown (<value>)`` for an unrecognized
+        state.
+        """
         return const.LOCK_STATE_NAMES.get(
             self.lock_state, f"unknown ({self.lock_state})"
         )
@@ -30,10 +37,14 @@ PADDING = bytes(range(0x21))
 
 
 def parse_advertisement(address: str, adv) -> LockAdvertisement | None:
-    """Returns None for anything that is not an ENTR lock.
+    """Return the first ENTR manufacturer payload as a ``LockAdvertisement``, or
+    ``None`` when none matches.
 
-    The manufacturer payload starts with a product id, then a byte holding the
-    advertisement version in its high nibble and the lock state in its low nibble.
+    ``adv`` is a Bleak advertisement or an object exposing ``manufacturer_data``,
+    ``local_name``, and ``rssi``. Empty payloads and product IDs without a following
+    state/version byte are skipped. Version 1 supplies an encoded name when present;
+    other layouts use the stripped local name, falling back to ``?``. Name decoding
+    replaces invalid characters. ``address`` is copied unchanged.
     """
     for payload in adv.manufacturer_data.values():
         if not payload or payload[0] != const.MANUFACTURER_PRODUCT_ID:

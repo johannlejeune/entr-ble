@@ -7,6 +7,10 @@ from .transport import EntrProtocolError, TransportClient, validate_response
 
 
 class LockSerial(TypedDict):
+    """Lock serial text, numeric firmware mode, mode label and hexadecimal response
+    payload.
+    """
+
     serial: str
     firmware_mode: int
     firmware: str
@@ -14,10 +18,16 @@ class LockSerial(TypedDict):
 
 
 class BasicDeviceConfig(StatusData):
+    """Decoded StatusData fields and hexadecimal GET_DEVICE_CONFIG response payload."""
+
     raw: str
 
 
 class NizDeviceConfig(BasicDeviceConfig):
+    """Device configuration with raw wall-reader, integration-unit, door-direction and
+    lock-type bytes.
+    """
+
     wall_reader_status: int
     integration_unit_status: int
     door_direction: int
@@ -28,7 +38,16 @@ type DeviceConfig = BasicDeviceConfig | NizDeviceConfig
 
 
 class Status(TransportClient):
+    """Read lock identity and refresh cached device status."""
+
     async def get_lock_sn(self) -> LockSerial:
+        """GET_LOCK_SN (72): return the serial number and firmware-family mode.
+
+        Requires a connected BLE client but no encrypted session. Returns LockSerial
+        with the serial text, numeric mode, known mode label (or an unknown label), and
+        hexadecimal payload. A missing, unexpected or truncated response raises
+        EntrProtocolError; lock rejection raises EntrLockError.
+        """
         # The payload byte is an unused placeholder; the command id is in the
         # outer control frame.
         _, payload = await self._send_raw(const.GET_LOCK_SN, bytes([0]))
@@ -48,6 +67,14 @@ class Status(TransportClient):
         }
 
     async def get_device_config(self) -> DeviceConfig:
+        """GET_DEVICE_CONFIG (30): read current settings and physical status.
+
+        Requires an established session. Returns BasicDeviceConfig or, when the extended
+        fields are present, NizDeviceConfig; battery percentage may be None and
+        passcode_required is omitted when unknown. Also refreshes status and status_raw
+        and acknowledges the response. A missing, unexpected or truncated response
+        raises EntrProtocolError; lock rejection raises EntrLockError.
+        """
         response = await self._send_encrypted(const.CMD_GET_DEVICE_CONFIG, b"")
         validate_response(response, const.CMD_GET_DEVICE_CONFIG_RESPONSE, 2)
         await self._send_ack(const.CMD_GET_DEVICE_CONFIG_RESPONSE_ACK)

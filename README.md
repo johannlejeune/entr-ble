@@ -44,6 +44,12 @@ async def read_status(address, kdf_id, role, aes_key):
 
 `aes_key` is the saved 16-byte key, not its hexadecimal representation. Provisioning also produces an application id, user id and lock key, which are needed for access commands. Keep one command in flight per client; disconnect after use. See [protocol notes](docs/PROTOCOL.md) for pairing, supported firmware and status limitations.
 
+Every public library method and helper has a docstring describing its inputs, result and relevant restrictions. Use `help(EntrLockClient)` or `help(EntrLockClient.unlock)` in Python to read them. Command methods identify the protocol command and its decimal number, matching the constants in [const.py](src/entr_ble/const.py).
+
+The client API covers [pairing and credential recovery](src/entr_ble/client/pairing.py), [locking and unlocking](src/entr_ble/client/access.py), [status](src/entr_ble/client/status.py), [users](src/entr_ble/client/users.py), [configuration and calibration](src/entr_ble/client/config.py), and [diagnostics and audit records](src/entr_ble/client/diagnostics.py). [Field helpers](src/entr_ble/client/fields.py) encode names and settings and describe the returned dictionaries; [advertisement helpers](src/entr_ble/advertising.py) identify locks without connecting.
+
+Invalid field lengths or encodings raise `ValueError`. `EntrLockError` reports a rejection from the lock and exposes its numeric `category` and `detail`; it is a subclass of `EntrProtocolError`, which also covers malformed or unexpected responses and missing session prerequisites. Response waits raise `TimeoutError` after eight seconds; the constructor's `timeout` controls the Bleak connection timeout. Bluetooth connection and I/O errors propagate from Bleak.
+
 ## Development
 
 The tests use simulated BLE responses and do not operate a physical lock. The Home Assistant tests use version 2026.9.3 and require Python 3.14.2 or newer; its dependencies are isolated in the `hacs` development group.

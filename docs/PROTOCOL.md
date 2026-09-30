@@ -45,7 +45,7 @@ Roles are 0 user, 1 admin, 2 owner, 3 remote control, 4 wall reader, 5 integrati
 | GET_DATA | 81 | Audit trail count and records on NIZ firmware. |
 | GET_ERRORS | 49 | Firmware error log on the FOTA service. |
 
-OP_DEVICE_CONFIG sends `app_id(16) ‖ prev_admin_code(6) ‖ admin_code(6) ‖ device_status(1) ‖ owner_unlock_code(4) ‖ lock_name(16) ‖ wall_reader_request_status(1)`. The status byte carries volume and the auto-lock bit. Different previous and new admin codes change the owner admin code. NIZ firmware adds wall-reader and integration-unit status bytes.
+OP_DEVICE_CONFIG sends `app_id(16) ‖ prev_admin_code(6) ‖ admin_code(6) ‖ device_status(1) ‖ owner_unlock_code(4) ‖ lock_name(16) ‖ wall_reader_request_status(1)`. The status byte carries volume and the auto-lock bit. Different previous and new admin codes change the owner admin code. For NIZ firmware, the request ends with `wall_reader_status(1) ‖ integration_unit_status(1)` in place of `wall_reader_request_status(1)`. Both status values come from GET_DEVICE_CONFIG.
 
 Mechanical calibration adds `door_direction(1) ‖ lock_type(1)`: left 1, right 3, normal 0 and lift 2. Magnet calibration uses an extra byte, normally 0. Settings, calibration, reset and time commands confirm success with OP_SUCCESS_EXP (101), which echoes the command id.
 

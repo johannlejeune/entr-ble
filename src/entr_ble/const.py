@@ -1,3 +1,10 @@
+"""ENTR GATT UUIDs, command numbers, roles, status values and field encodings.
+
+Command values are decimal protocol identifiers. Use ROLE_* and MODE_* constants when
+supplying roles or access modes to EntrLockClient; the accompanying name dictionaries
+describe values returned by the lock.
+"""
+
 from uuid import UUID
 
 REQUEST_SERVICE = UUID("c5e00100-d396-11e3-bb18-0002a5d5c51b")

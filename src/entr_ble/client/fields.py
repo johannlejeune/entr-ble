@@ -5,6 +5,10 @@ import entr_ble.const as const
 
 
 class StatusData(TypedDict):
+    """Decoded lock and sensor flags with readable volume/battery labels;
+    ``passcode_required`` is absent when unknown.
+    """
+
     locked: bool
     door_closed: bool
     muted: bool
@@ -17,12 +21,18 @@ class StatusData(TypedDict):
 
 
 class UserEntry(TypedDict):
+    """A decoded user name and raw numeric role/state values from a user batch."""
+
     name: str
     role: int
     state: int
 
 
 class AuditRecord(TypedDict, total=False):
+    """Recognized audit fields: formatted date, user name, hexadecimal credential, and
+    event label; missing fields are omitted.
+    """
+
     date: str
     user: str
     credential: str
@@ -32,10 +42,12 @@ class AuditRecord(TypedDict, total=False):
 def settings_status_byte(
     current: int, auto_lock: bool | None = None, volume: int | None = None
 ) -> int:
-    """Builds the DEVICE_STATUS byte of OP_DEVICE_CONFIG.
+    """Return the settings-only DEVICE_STATUS byte for OP_DEVICE_CONFIG.
 
-    Include only the volume field and auto-lock bit. Keep unchanged fields from
-    the latest GetDeviceConfig or KDF response.
+    Supply ``current`` from the latest GetDeviceConfig or KDF response. ``None``
+    preserves the corresponding setting; ``auto_lock`` sets the enabled state and
+    ``volume`` supplies a raw volume constant. Other status bits are discarded. Values
+    are masked rather than validated.
     """
     if auto_lock is None:
         status = current & const.STATUS_BIT_AUTO_LOCK_OFF
@@ -45,19 +57,21 @@ def settings_status_byte(
 
 
 def user_id_bytes(name: str) -> bytes:
-    """Turns a user name into the 16-byte USER_ID the lock indexes users by.
+    """Return the 16-byte ASCII USER_ID derived from a user name.
 
-    The name is space padded or truncated to 16 bytes; there is no separate id.
+    The first 16 characters are space padded; there is no separate ID. Non-ASCII
+    characters in the retained name raise ``UnicodeEncodeError``.
     """
     return name[: const.USER_ID_LENGTH].ljust(const.USER_ID_LENGTH).encode("ascii")
 
 
 def build_lock_name(name: str) -> bytes:
-    """16-byte LOCK_NAME field: an encoding sign byte followed by the name,
-    space padded.
+    """Return a 16-byte LOCK_NAME field containing an encoding sign and a space-padded
+    name.
 
-    The sign selects the codec. Use the first candidate that round-trips without
-    replacement characters.
+    Use the first configured codec that round-trips the name. Raise ``ValueError`` if no
+    codec accepts it, if it contains ``?`` or the SUB control character, or if the
+    encoded name exceeds ``LOCK_NAME_MAX_BYTES`` (12 bytes). Names are not truncated.
     """
     sign = None
     encoded = b""
@@ -83,7 +97,12 @@ def build_lock_name(name: str) -> bytes:
 
 
 def time_bcd(moment: datetime | None = None) -> bytes:
-    """6-byte UTC timestamp packed as BCD: YY MM DD HH MM SS."""
+    """Return six BCD bytes in YY MM DD HH MM SS order.
+
+    Default to the current UTC time. Aware datetimes are converted to UTC; naive
+    datetimes are encoded as supplied. Only the year's final two digits are retained,
+    and subsecond precision is discarded.
+    """
     moment = moment or datetime.now(UTC)
     if moment.tzinfo is not None:
         moment = moment.astimezone(UTC)
@@ -103,10 +122,13 @@ def time_bcd(moment: datetime | None = None) -> bytes:
 def decode_status(
     status: int, battery_percentage: int | None, passcode_raw: int | None
 ) -> StatusData:
-    """Decodes the DEVICE_STATUS byte the lock appends to several responses.
+    """Return decoded flags and labels from a raw DEVICE_STATUS byte and optional
+    response fields.
 
-    A valid percentage takes precedence over the status bits, which serve as a
-    fallback.
+    Battery percentages in 0–100 override the battery bits; other readings become
+    ``None`` and use those bits. Percentages below 10 are low, 10–20 medium, and above
+    20 high. ``passcode_raw`` adds ``passcode_required`` only for 0 (required) or 1 (not
+    required). Raw status values are interpreted by bit masks without range validation.
     """
     if battery_percentage is None or not 0 <= battery_percentage <= 100:
         battery_state = _battery_state_from_status(status)
@@ -133,6 +155,12 @@ def decode_status(
 
 
 def fixed_length(value: str, length: int, what: str) -> bytes:
+    """Return ASCII bytes for an exact-length string.
+
+    Raise ``ValueError`` on a character-count mismatch, using ``what`` as the field
+    label, or ``UnicodeEncodeError`` for non-ASCII text. No padding or truncation is
+    performed.
+    """
     # The frame layout reserves an exact number of bytes; a short value would
     # silently shift every following field.
     if len(value) != length:
@@ -143,16 +171,25 @@ def fixed_length(value: str, length: int, what: str) -> bytes:
 
 
 def fixed_bytes(value, length, what):
+    """Return ``value`` unchanged if its length matches, otherwise raise ``ValueError``
+    using ``what`` as the field label.
+
+    This checks length only; callers must supply the appropriate byte-oriented type.
+    """
     if len(value) != length:
         raise ValueError(f"{what} must be exactly {length} bytes, got {len(value)}")
     return value
 
 
 def parse_user_batch(response: bytes, users: list[UserEntry]) -> int:
-    """Appends one batch of users and returns how many are still to come.
+    """Append a GET_KEYS response batch to ``users`` and return the remaining user
+    count.
 
-    Byte 1 counts users left including this batch, byte 2 counts this batch,
-    followed by 18 bytes per entry.
+    Byte 1 counts users left including this batch, byte 2 counts this batch, followed by
+    18 bytes per entry. Names decode as ASCII with replacement and surrounding
+    whitespace removed; role/state bytes are preserved. Raise ``ValueError`` for the
+    wrong command, missing data, inconsistent counts, or an empty batch with users
+    outstanding. Trailing bytes are ignored.
     """
     if len(response) < 3 or response[0] != const.CMD_GET_KEYS_RESPONSE:
         raise ValueError("invalid user batch response")
@@ -175,7 +212,14 @@ def parse_user_batch(response: bytes, users: list[UserEntry]) -> int:
 
 
 def parse_audit_record(data: bytes) -> AuditRecord:
-    """Parse an audit TLV series with one-byte tags and lengths."""
+    """Return recognized fields from an audit TLV series with one-byte tags and lengths.
+
+    Date fields become ``20YY-MM-DD HH:MM:SS`` strings, user names decode as stripped
+    ASCII with replacement, credentials become hexadecimal, and events use known labels
+    or an unknown label. Unknown tags and date fields of other lengths are skipped;
+    repeated fields overwrite earlier values. Raise ``ValueError`` for truncated headers
+    or values. Date digits and calendar validity are not checked.
+    """
     record: AuditRecord = {}
     offset = 0
     while offset + 2 <= len(data):

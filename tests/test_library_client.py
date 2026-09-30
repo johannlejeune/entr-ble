@@ -63,6 +63,34 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             [call.args[1] for call in writes[1:]], build_payload_chunks(payload)
         )
 
+    async def test_device_config_euro_and_niz_request_layouts(self):
+        self.client._send_raw = AsyncMock(return_value=(101, bytes([101, 47])))
+        app_id = bytes(range(16))
+        lock_name = b"FFront          "
+        prefix = b"\x2f" + app_id + b"123456654321\x03" + b"\xff" * 4 + lock_name
+        for statuses, ending in ((None, b"\x07"), (b"\x11\x22", b"\x11\x22")):
+            with self.subTest(statuses=statuses):
+                await self.client.set_device_config(
+                    app_id,
+                    "123456",
+                    "654321",
+                    3,
+                    lock_name,
+                    wall_reader_request_status=7,
+                    niz_statuses=statuses,
+                )
+                command, wire = self.client._send_raw.await_args.args
+                self.assertEqual(command, const.CMD_GENERAL_ENCRYPTED)
+                self.assertEqual(self.client.session.decrypt(wire), prefix + ending)
+
+    async def test_device_config_rejects_invalid_niz_status_lengths_before_writes(self):
+        for statuses in (b"", b"\x11", b"\x11\x22\x33"):
+            with self.subTest(statuses=statuses), self.assertRaises(ValueError):
+                await self.client.set_device_config(
+                    bytes(16), "123456", "123456", 0, bytes(16), niz_statuses=statuses
+                )
+        self.bleak.write_gatt_char.assert_not_awaited()
+
     async def test_key_activation_validates_before_acknowledging(self):
         self.client._send_encrypted = AsyncMock(return_value=b"\x13short")
         self.client._send_ack = AsyncMock()

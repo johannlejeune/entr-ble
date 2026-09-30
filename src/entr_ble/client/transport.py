@@ -75,11 +75,18 @@ ERROR_CATEGORIES = {
 
 
 class EntrProtocolError(Exception):
-    pass
+    """A malformed or unexpected response, or an unmet protocol/session prerequisite."""
 
 
 class EntrLockError(EntrProtocolError):
+    """OP_ERROR (102): a lock-reported failure with numeric category and detail
+    attributes.
+    """
+
     def __init__(self, category: int, detail: int):
+        """Create an error from the lock's category and detail codes, preserving unknown
+        codes numerically.
+        """
         self.category = category
         self.detail = detail
         category_name = ERROR_CATEGORIES.get(category, f"category {category}")
@@ -88,7 +95,23 @@ class EntrLockError(EntrProtocolError):
 
 
 class TransportClient:
+    """BLE connection and session state shared by the command mixins.
+
+    Keep one command in flight per client. Command exchanges can raise EntrLockError for
+    a lock rejection, EntrProtocolError for malformed responses or missing sessions,
+    TimeoutError after eight seconds without a response, and backend BLE exceptions for
+    connection or GATT failures.
+    """
+
     def __init__(self, device, timeout=10.0):
+        """Create a disconnected client for a Bluetooth address or Bleak BLEDevice.
+
+        timeout is the Bleak connection timeout in seconds, separate from the
+        eight-second protocol response timeout. Generates a fresh private_key for
+        provisioning; session is initially None, comm_version is empty, and status and
+        status_raw are None. Call connect() before commands and disconnect() when
+        finished.
+        """
         self.address = device.address if isinstance(device, BLEDevice) else device
         self.client = BleakClient(device, timeout=timeout)
         self.private_key = crypto.generate_keypair()
@@ -110,6 +133,13 @@ class TransportClient:
         self.fota_available = False
 
     async def connect(self) -> None:
+        """Connect and subscribe to lock responses; return None.
+
+        Sets fota_available according to whether optional FOTA notifications can be
+        enabled. Failure to enable those optional notifications does not prevent
+        ordinary commands; connection and required notification failures propagate from
+        Bleak.
+        """
         await self.client.connect()
         await self.client.start_notify(const.RESPONSE_CONTROL, self._on_control)
         await self.client.start_notify(const.RESPONSE_PRIMARY_PAYLOAD, self._on_primary)
@@ -127,6 +157,11 @@ class TransportClient:
             self.fota_available = False
 
     async def disconnect(self) -> None:
+        """Close the BLE connection and return None; backend errors propagate.
+
+        Cached session and status remain on this object. Restore the session with
+        kdf_resync() after reconnecting before sending encrypted commands.
+        """
         await self.client.disconnect()
 
     def _on_control(self, _char, data: bytearray) -> None:
@@ -262,8 +297,9 @@ class TransportClient:
     def _is_explicit_success(
         outer_command: int, payload: bytes | None, command: int
     ) -> bool:
-        """OP_SUCCESS_EXP (101) echoes the id of the succeeded command, either
-        wrapped in GENERAL_ENCRYPTED like everything else or as a bare frame."""
+        """OP_SUCCESS_EXP (101): check that the success response confirms the requested
+        command.
+        """
         if outer_command == const.CMD_GENERAL_ENCRYPTED:
             return (
                 payload is not None
@@ -276,12 +312,8 @@ class TransportClient:
         return False
 
     async def _send_ack(self, command: int) -> None:
-        """Acknowledges a response the lock expects confirmation for.
-
-        GetNewKey is the one that matters: the lock keeps the key in the
-        pending state until this lands, so an activation without it looks
-        successful locally but never completes on the lock. Allow processing
-        time before sending the acknowledgment; the lock sends no reply to it.
+        """Send an encrypted acknowledgment after the lock's processing delay; no reply
+        is expected.
         """
         assert self.session is not None
         await asyncio.sleep(ACK_DELAY)
@@ -298,6 +330,11 @@ class TransportClient:
 
 
 def validate_response(payload, command, minimum_length):
+    """Check a response's leading command byte and minimum byte length.
+
+    Return None on success; raise EntrProtocolError for a missing payload,
+    unexpected command or truncated response.
+    """
     if not payload or payload[0] != command:
         raise EntrProtocolError(f"unexpected response to command {command}")
     if len(payload) < minimum_length:

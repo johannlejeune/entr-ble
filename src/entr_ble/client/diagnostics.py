@@ -8,6 +8,11 @@ from .transport import EntrProtocolError, TransportClient, validate_response
 
 
 class DeviceInfo(TypedDict):
+    """Device identifier and raw payload as hexadecimal, model and firmware text, and a
+    descriptive update status. Parsed component versions are present only when
+    recognizable.
+    """
+
     device_id: str
     model: str
     code_version: str
@@ -20,6 +25,10 @@ class DeviceInfo(TypedDict):
 
 
 class ErrorLog(TypedDict):
+    """Raw error-log response: numeric response code, declared data length, all-zero
+    empty flag, and hexadecimal data and payload.
+    """
+
     response_code: int
     length: int
     empty: bool
@@ -28,17 +37,27 @@ class ErrorLog(TypedDict):
 
 
 class AuditTrailStatus(TypedDict):
+    """Audit response type and first-byte record count, or None when no count was
+    returned.
+    """
+
     type: int
     records_count: int | None
 
 
 class Diagnostics(TransportClient):
-    async def get_device_info(self) -> DeviceInfo:
-        """GET_DEVICE_INFO (45): model, device id and BLE/MCU/radio firmware
-        versions as length-prefixed strings, plus a 4-byte update status.
+    """Firmware information, raw fault logs and NIZ audit-trail queries."""
 
-        Uses the FOTA GATT service. Direct session crypto needs comm version
-        1.29r3+; older locks require a separate FOTA IV exchange.
+    async def get_device_info(self) -> DeviceInfo:
+        """GET_DEVICE_INFO (45): return device identity and firmware information.
+
+        Requires an established session, the FOTA GATT service and a communication
+        version matching 1.29r3 or later; older versions need a separate FOTA IV
+        exchange that this method does not implement. Returns DeviceInfo with
+        hexadecimal device ID and raw payload, decoded model and version strings, a
+        descriptive update status and optional parsed component versions. Unavailable
+        FOTA, unsupported versions or malformed responses raise EntrProtocolError; lock
+        rejection raises EntrLockError.
         """
         version = re.fullmatch(r"(\d+)\.(\d+)r(\d+)", self.comm_version)
         if version is None or tuple(map(int, version.groups())) < (1, 29, 3):
@@ -102,13 +121,15 @@ class Diagnostics(TransportClient):
         return info
 
     async def get_errors(self, query: bytes) -> ErrorLog:
-        """GET_ERRORS (49): the firmware fault log, on the FOTA service only
-        (the main service answers UnsupportedCmdInBuff).
+        """GET_ERRORS (49): return the raw firmware fault log through the FOTA service.
 
-        The meaning of the 8-byte query is unknown. An ENTR EURO (comm 1.29r5)
-        returns the same dump regardless of its content. The response uses
-        `[response code][length][data]` and reports code 8. Command-level
-        errors (OP_ERROR) do not show up in the log.
+        Requires an established session, the FOTA GATT service and an eight-byte query.
+        The query's meaning is unknown; this method passes it through unchanged. Returns
+        ErrorLog with the response code, declared data length, hexadecimal data and
+        payload, and an empty flag meaning all data bytes are zero. The error data is
+        not decoded. Invalid query length raises ValueError; unavailable FOTA or
+        malformed responses raise EntrProtocolError and lock rejection raises
+        EntrLockError.
         """
         self._require_fota()
         fields = fixed_bytes(query, 8, "error query")
@@ -136,7 +157,15 @@ class Diagnostics(TransportClient):
     async def audit_trail_status(
         self, admin_code: str, app_id: bytes
     ) -> AuditTrailStatus:
-        """GET_DATA (81) with type 3: how many records the log holds. NIZ only."""
+        """GET_DATA (81): query the NIZ audit-trail record count with type 3.
+
+        Requires an established session, firmware with audit-trail support, a
+        six-character ASCII audit admin code and a 16-byte application ID. Returns
+        AuditTrailStatus with the response type and the first data byte as
+        records_count, or None when absent. Missing or malformed responses raise
+        EntrProtocolError and lock rejection raises EntrLockError. Invalid field lengths
+        raise ValueError.
+        """
         fields = (
             fixed_length(admin_code, const.ADMIN_CODE_LENGTH, "admin code")
             + fixed_bytes(app_id, 16, "application id")
@@ -149,10 +178,16 @@ class Diagnostics(TransportClient):
     async def audit_trail_records(
         self, admin_code: str, app_id: bytes, batch_size: int = 50
     ) -> list[AuditRecord]:
-        """GET_DATA (81) with type 1: reads event records.
+        """GET_DATA (81): retrieve NIZ audit records with type 1.
 
-        The lock streams one record per response frame without being asked
-        again, mirroring GetKeys; a trailing tag of 0xFF marks the end.
+        Requires an established session, firmware with audit-trail support, a
+        six-character ASCII audit admin code and a 16-byte application ID. batch_size is
+        the one-byte request parameter, defaulting to 50. Returns a list of AuditRecord
+        dictionaries with whichever date, user, credential and event fields each record
+        contains. Reads streamed responses until the final marker; malformed or
+        interrupted streams and streams exceeding 10,000 records raise
+        EntrProtocolError. Lock rejection raises EntrLockError and invalid field lengths
+        or batch_size byte values raise ValueError.
         """
         fields = (
             fixed_length(admin_code, const.ADMIN_CODE_LENGTH, "admin code")

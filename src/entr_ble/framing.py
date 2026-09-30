@@ -11,6 +11,14 @@ LOCATION_SECONDARY = 2
 
 @dataclass
 class ControlResponse:
+    """Parsed control header and optional inline payload.
+
+    ``payload_location`` is 0 for inline data, 1 for the primary payload characteristic,
+    or 2 for the secondary characteristic; other values are preserved. ``payload`` is
+    ``None`` for external or empty payloads. ``payload_length`` and ``payload_checksum``
+    describe the complete payload, including external data.
+    """
+
     command: int
     payload_location: int
     payload_checksum: int
@@ -20,7 +28,13 @@ class ControlResponse:
 
 @dataclass
 class ChunkAssembler:
-    """Reassembles a chunked payload sent as consecutive [counter, len, data...] notifications."""
+    """Accumulate one payload from ordered ``[counter, length, data...]`` notifications.
+
+    Configure the checksum and optional total length from the control frame through the
+    constructor or ``reset``. Call ``feed`` for each notification, then reset before the
+    next payload or after a failed feed; feeds may change the counter and buffer before
+    raising.
+    """
 
     expected_checksum: int = 0
     counter: int = 0
@@ -28,12 +42,22 @@ class ChunkAssembler:
     expected_length: int | None = None
 
     def reset(self, expected_checksum: int, expected_length=None) -> None:
+        """Clear accumulated data and set the expected checksum and optional byte
+        length; values are stored without validation.
+        """
         self.expected_checksum = expected_checksum
         self.expected_length = expected_length
         self.counter = 0
         self.buffer.clear()
 
     def feed(self, chunk: bytes) -> bytes | None:
+        """Consume a notification and return the completed payload, or ``None`` while
+        more chunks are needed.
+
+        Raise ``ValueError`` for an invalid or truncated chunk, a nonfinal counter out
+        of sequence, a total-length mismatch, or a final checksum mismatch. Declared
+        chunk lengths must be 1–18 bytes; bytes beyond that declared length are ignored.
+        """
         if len(chunk) < 2 or not 0 < chunk[1] <= MAX_CHUNK_SIZE:
             raise ValueError("invalid payload chunk length")
         if len(chunk) < 2 + chunk[1]:
@@ -58,6 +82,14 @@ class ChunkAssembler:
 
 
 def build_control_frame(command: int, payload: bytes) -> bytes:
+    """Return a checksummed control frame for a command byte and payload of at most
+    65535 bytes.
+
+    Payloads of at most 14 bytes are included inline. Larger payloads produce only a
+    header pointing to the primary characteristic; send
+    ``build_payload_chunks(payload)`` separately. Raise ``ValueError`` if the command is
+    outside 0–255 or the payload exceeds the length limit.
+    """
     if not 0 <= command <= 0xFF or len(payload) > 0xFFFF:
         raise ValueError("command or payload exceeds control frame limits")
     payload_type = 0 if len(payload) <= MAX_INLINE_PAYLOAD else 1
@@ -78,6 +110,12 @@ def build_control_frame(command: int, payload: bytes) -> bytes:
 
 
 def build_payload_chunks(data: bytes) -> list[bytes]:
+    """Split data into ordered notifications containing a counter, length, and up to 18
+    data bytes.
+
+    The final counter carries the completion marker. Empty data yields an empty list.
+    This helper does not enforce the control frame's total payload-length limit.
+    """
     chunks = []
     counter = 1
     offset = 0
@@ -96,6 +134,14 @@ def build_payload_chunks(data: bytes) -> list[bytes]:
 
 
 def parse_control_frame(data: bytes) -> ControlResponse:
+    """Parse a control header and validate any inline payload, returning a
+    ``ControlResponse``.
+
+    Raise ``ValueError`` for a truncated header, incorrect header checksum, an inline
+    length above 14 bytes or beyond the available data, or an incorrect inline payload
+    checksum. External payloads require separate assembly and validation. Unknown
+    payload locations and trailing bytes are accepted.
+    """
     if len(data) < 6:
         raise ValueError("truncated control frame")
     if _checksum(data[:5]) != data[5]:

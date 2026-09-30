@@ -9,18 +9,30 @@ from .transport import EntrProtocolError, TransportClient, validate_response
 
 
 class OwnerCredentials(TypedDict):
+    """Recovered owner credentials: 32-byte lock key, KDF identifier and 16-byte user
+    identifier.
+    """
+
     ble_ekey: bytes
     kdf_id: int
     user_id: bytes
 
 
 class OwnerSetup(TypedDict):
+    """New owner credentials and decoded status; the user identifier is supplied to
+    set_owner().
+    """
+
     ble_ekey: bytes
     kdf_id: int
     status: StatusData
 
 
 class NewKeyCredentials(TypedDict):
+    """Redeemed credentials: 32-byte lock key, assigned role, provider identifier,
+    16-byte user identifier and KDF identifier.
+    """
+
     ble_ekey: bytes
     role: int
     provider_id: int
@@ -29,7 +41,15 @@ class NewKeyCredentials(TypedDict):
 
 
 class Pairing(TransportClient):
+    """Provision credentials or restore an encrypted session on a connected lock."""
+
     async def fetch_comm_version(self) -> str:
+        """GET_COMMUNICATION_VERSION (43): read and cache the lock's ASCII communication
+        version.
+
+        Requires a connection, but no encrypted session. Returns the version string and
+        sets comm_version; malformed or non-ASCII responses raise EntrProtocolError.
+        """
         # The payload byte is an unused placeholder; the command id is in the
         # outer control frame.
         _, payload = await self._send_raw(
@@ -46,9 +66,13 @@ class Pairing(TransportClient):
         return self.comm_version
 
     async def pair(self) -> None:
-        """One-time ECDH key exchange. Only valid the very first time this
-        client's key pair talks to a given lock; save the resulting credentials
-        for later sessions.
+        """SEND_PUBLIC_KEY (10): establish an encrypted session for provisioning new
+        credentials.
+
+        Requires a connection. Sets session from the public-key exchange and returns
+        None; malformed public-key responses raise EntrProtocolError. Follow with
+        handshake() and one provisioning operation, then retain session.key and the
+        returned credentials for kdf_resync() on later connections.
         """
         our_pub = crypto.public_key_bytes(self.private_key)
         _, response = await self._send_raw(const.CMD_SEND_PUBLIC_KEY, our_pub)
@@ -64,11 +88,26 @@ class Pairing(TransportClient):
         self.session.set_iv(remote_iv)
 
     async def handshake(self, app_id: bytes) -> None:
+        """HANDSHAKE1 (11): send the 16-byte application identifier before provisioning.
+
+        Requires a connection and the session established by pair(). Reuse this app_id
+        for provisioning and subsequent access commands. Returns None without validating
+        a success echo; an invalid identifier length raises ValueError.
+        """
         await self._send_encrypted(
             const.CMD_HANDSHAKE1, fixed_bytes(app_id, 16, "application id")
         )
 
     async def recover_owner(self, admin_code: str, app_id: bytes) -> OwnerCredentials:
+        """RECOVER_OWNER (38): replace the initialized lock's current owner credentials.
+
+        Requires pair() and handshake(app_id). Supply the six-character ASCII owner
+        admin code and the same 16-byte app_id. Returns the new 32-byte ble_ekey, kdf_id
+        and 16-byte user_id; retain these together with app_id and session.key. The
+        previous owner credential loses access. Invalid field lengths raise ValueError,
+        non-ASCII codes raise UnicodeEncodeError and malformed responses raise
+        EntrProtocolError.
+        """
         fields = fixed_length(
             admin_code, const.ADMIN_CODE_LENGTH, "admin code"
         ) + fixed_bytes(app_id, 16, "application id")
@@ -88,10 +127,16 @@ class Pairing(TransportClient):
         lock_name: bytes,
         provider_id: int,
     ) -> OwnerSetup:
-        """Claims an uninitialized lock.
+        """SET_OWNER (12): claim an uninitialized lock and acknowledge the resulting
+        credentials.
 
-        prev_admin_code is the factory placeholder 000000; the response carries
-        the same credentials as RecoverOwner and requires SET_OWNER_ACK.
+        Requires pair() and handshake(app_id). Supply a six-character ASCII admin code,
+        16-byte app_id and user_id, a 16-byte lock_name from build_lock_name(), and a
+        one-byte provider_id. Initializes automatic mode and returns the 32-byte
+        ble_ekey, kdf_id and decoded status after sending SET_OWNER_ACK (40). Retain the
+        supplied identifiers and session.key with the returned credentials. Invalid
+        field lengths or provider_id raise ValueError, non-ASCII codes raise
+        UnicodeEncodeError and malformed responses raise EntrProtocolError.
         """
         fields = (
             b"000000"
@@ -120,9 +165,15 @@ class Pairing(TransportClient):
         }
 
     async def get_new_key(self, key_code: str, app_id: bytes) -> NewKeyCredentials:
-        """Redeems a pending key created by an owner or admin, so this device
-        gets its own credentials without touching theirs. The request uses role
-        6 as a placeholder; the assigned role comes back in the response.
+        """GET_NEW_KEY (16): redeem a pending key created by an owner or admin.
+
+        Requires pair() and handshake(app_id). Supply the six-character ASCII key code
+        and the same 16-byte app_id before the pending key expires. Returns ble_ekey (32
+        bytes), the assigned role, provider_id, user_id (16 bytes) and kdf_id after
+        sending GET_NEW_KEY_ACK (41) to complete activation. Retain these with app_id
+        and session.key; existing users keep their credentials. Invalid field lengths
+        raise ValueError, non-ASCII codes raise UnicodeEncodeError and malformed
+        responses raise EntrProtocolError.
         """
         fields = (
             fixed_length(key_code, const.KEY_CODE_LENGTH, "key code")
@@ -142,8 +193,16 @@ class Pairing(TransportClient):
         }
 
     async def kdf_resync(self, kdf_id: int, role: int, key: bytes) -> StatusData | None:
-        """Re-derives the session IV, and picks up the status the lock piggybacks
-        on the response, which saves a separate GetDeviceConfig round trip."""
+        """KDF (14): restore an encrypted session using saved credentials and the lock's
+        fresh IV.
+
+        Requires a connection, but no existing session. Supply the saved one-byte
+        kdf_id, assigned one-byte role and 16-byte AES session key, rather than the
+        32-byte ble_ekey. Replaces session and caches status and status_raw; returns
+        decoded status when included by the lock, otherwise None. Invalid key length or
+        byte values raise ValueError and malformed responses raise EntrProtocolError.
+        The returned signature is not verified by this client.
+        """
         session = SessionCrypto(key)
         _, payload = await self._send_raw(const.CMD_KDF, bytes([kdf_id, role]))
         validate_response(payload, const.CMD_KDF_RESPONSE, 89)
