@@ -125,6 +125,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
+        env:
+          REPOSITORY_REF: ${{ inputs.ref || github.event.pull_request.head.sha || github.sha }}
         with:
           category: integration
           comment: false
