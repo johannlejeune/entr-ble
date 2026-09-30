@@ -70,7 +70,7 @@ class Diagnostics(TransportClient):
         )
         if outer_command != const.CMD_GENERAL_ENCRYPTED or payload is None:
             raise EntrProtocolError("no encrypted response to GET_DEVICE_INFO")
-        validate_response(payload, const.CMD_GET_DEVICE_INFO_RESPONSE, 1)
+        payload = validate_response(payload, const.CMD_GET_DEVICE_INFO_RESPONSE, 1)
 
         def _raw_string(offset: int) -> tuple[bytes, int]:
             # Each string has a length prefix; offset 0 is the command echo.
@@ -197,7 +197,7 @@ class Diagnostics(TransportClient):
         records: list[AuditRecord] = []
         payload = await self._get_data_response(fields)
         while True:
-            validate_response(payload, const.CMD_GET_DATA_RESPONSE, 3)
+            payload = validate_response(payload, const.CMD_GET_DATA_RESPONSE, 3)
             length = payload[2]
             if len(payload) < 3 + length + 1:
                 raise EntrProtocolError("truncated audit trail record")

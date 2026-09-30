@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 from entr_ble import EntrLockClient, EntrLockError, EntrProtocolError, const
+from entr_ble.client.fields import decode_status
 from entr_ble.crypto import derive_session_key, generate_keypair, public_key_bytes
 from entr_ble.framing import build_control_frame, build_payload_chunks
 from entr_ble.session_crypto import SessionCrypto
@@ -79,6 +80,8 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
                     wall_reader_request_status=7,
                     niz_statuses=statuses,
                 )
+                assert self.client._send_raw.await_args is not None
+                assert self.client.session is not None
                 command, wire = self.client._send_raw.await_args.args
                 self.assertEqual(command, const.CMD_GENERAL_ENCRYPTED)
                 self.assertEqual(self.client.session.decrypt(wire), prefix + ending)
@@ -119,7 +122,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(status["locked"])
 
     async def test_kdf_does_not_reuse_previous_status(self):
-        self.client.status = {"locked": True}
+        self.client.status = decode_status(0, None, None)
         self.client.status_raw = 0
         self.client._send_raw = AsyncMock(return_value=(20, bytes([20]) + bytes(88)))
         self.assertIsNone(await self.client.kdf_resync(1, 0, bytes(16)))
@@ -197,6 +200,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         peer.set_iv(bytes(range(16)))
         self.client._send_raw.return_value = (100, b"")
         await self.client.handshake(bytes(range(16)))
+        assert self.client._send_raw.await_args is not None
         command, encrypted = self.client._send_raw.await_args.args
         self.assertEqual(command, 120)
         self.assertEqual(peer.decrypt(encrypted), bytes([11]) + bytes(range(16)))
@@ -219,7 +223,9 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             return_value=(20, bytes([20]) + iv + bytes(72) + bytes([8, 50, 0]))
         )
         status = await self.client.kdf_resync(1, 0, bytes(16))
+        assert status is not None
+        assert self.client.session is not None
         self.assertFalse(status["locked"])
         self.assertEqual(status["battery_percentage"], 50)
-        self.assertTrue(status["passcode_required"])
+        self.assertTrue(status.get("passcode_required"))
         self.assertEqual(self.client.session.iv_tail, iv[1:])

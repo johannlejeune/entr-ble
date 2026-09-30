@@ -1,6 +1,7 @@
 from typing import override
 
-from homeassistant.components.lock import LockEntity, LockEntityFeature, LockState
+from homeassistant.components.lock import LockEntity, LockEntityFeature
+from homeassistant.components.lock.const import LockState
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import CONF_ADDRESS

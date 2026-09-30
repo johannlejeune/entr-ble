@@ -164,7 +164,7 @@ class TransportClient:
         """
         await self.client.disconnect()
 
-    def _on_control(self, _char, data: bytearray) -> None:
+    def _on_control(self, _char, data: bytes | bytearray) -> None:
         try:
             parsed = parse_control_frame(bytes(data))
         except ValueError as exc:
@@ -185,7 +185,7 @@ class TransportClient:
                 )
             )
 
-    def _on_primary(self, _char, data: bytearray) -> None:
+    def _on_primary(self, _char, data: bytes | bytearray) -> None:
         if self._pending_command is None:
             self._queue(EntrProtocolError("payload arrived without a control frame"))
             return
@@ -329,13 +329,16 @@ class TransportClient:
                 )
 
 
-def validate_response(payload, command, minimum_length):
+def validate_response(
+    payload: bytes | None, command: int, minimum_length: int
+) -> bytes:
     """Check a response's leading command byte and minimum byte length.
 
-    Return None on success; raise EntrProtocolError for a missing payload,
+    Return the validated payload; raise EntrProtocolError for a missing payload,
     unexpected command or truncated response.
     """
     if not payload or payload[0] != command:
         raise EntrProtocolError(f"unexpected response to command {command}")
     if len(payload) < minimum_length:
         raise EntrProtocolError(f"truncated response to command {command}")
+    return payload

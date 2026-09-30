@@ -13,7 +13,8 @@ from bleak.exc import BleakError
 from entr_ble_cli.commands import config
 from entr_ble_cli.store import LockCredentials
 from homeassistant import components
-from homeassistant.components.lock import LockEntityFeature, LockState
+from homeassistant.components.lock import LockEntityFeature
+from homeassistant.components.lock.const import LockState
 from homeassistant.components.sensor import RestoreSensor
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant

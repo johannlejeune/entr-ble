@@ -68,7 +68,7 @@ async def run(client, credentials, args) -> list[str]:
             args.admin_code,
             app_id,
             user_id,
-            build_lock_name(lock_name),
+            build_lock_name(args.name),
             args.provider,
         )
         prefix = f"owner claimed: kdf_id={result['kdf_id']}"

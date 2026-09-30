@@ -46,11 +46,14 @@ class FieldTests(unittest.TestCase):
         self.assertIsNone(parse_advertisement("AA:BB", advertisement))
         advertisement.manufacturer_data[4] = b"\xe7\x11\x00\x00FEntr\xe9e   \x00"
         lock = parse_advertisement("AA:BB", advertisement)
+        assert lock is not None
         self.assertEqual(
             (lock.name, lock.state_name, lock.rssi), ("Entrée", "initialized", -55)
         )
         advertisement.manufacturer_data[4] = b"\xe7\x21"
-        self.assertEqual(parse_advertisement("AA:BB", advertisement).name, "Fallback")
+        lock = parse_advertisement("AA:BB", advertisement)
+        assert lock is not None
+        self.assertEqual(lock.name, "Fallback")
 
     def test_setting_changes_preserve_other_settings_and_drop_sensor_bits(self):
         self.assertEqual(settings_status_byte(0xFF), 0x07)

@@ -125,6 +125,7 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
             [call.args[0] for call in password.call_args_list],
             ["Current admin password: ", "New admin password: "],
         )
+        assert self.client.set_device_config.await_args is not None
         self.assertEqual(
             self.client.set_device_config.await_args.args[:3],
             (b"\x01", "Aa1234", "Bb5678"),
@@ -144,6 +145,7 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
         password.assert_not_called()
+        assert self.client.set_device_config.await_args is not None
         self.assertEqual(
             self.client.set_device_config.await_args.args[:3],
             (b"\x01", "Cc1234", "Dd5678"),
@@ -227,6 +229,7 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
                 arguments("settings", "AA", "-p", "123456", "--volume", "medium"),
             )
         sent = self.client.set_device_config.await_args
+        assert sent is not None
         self.assertEqual(sent.args[:4], (b"\x01", "123456", "123456", 3))
         self.assertEqual(sent.kwargs, {"niz_statuses": b"\x11\x22"})
         self.assertEqual(lines, ["settings updated: volume medium"])
@@ -283,6 +286,7 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         self.client.handshake.assert_awaited_once()
         self.client.kdf_resync.assert_not_awaited()
         self.client.disconnect.assert_awaited_once()
+        assert save.call_args is not None
         saved = save.call_args.args[0]
         self.assertEqual(saved.lock_name, "Front")
         self.assertEqual(saved.address, "AA")

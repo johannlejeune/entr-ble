@@ -55,7 +55,9 @@ class Pairing(TransportClient):
         _, payload = await self._send_raw(
             const.CMD_GET_COMMUNICATION_VERSION, bytes([0])
         )
-        validate_response(payload, const.CMD_GET_COMMUNICATION_VERSION_RESPONSE, 2)
+        payload = validate_response(
+            payload, const.CMD_GET_COMMUNICATION_VERSION_RESPONSE, 2
+        )
         length = payload[1]
         if len(payload) < 2 + length:
             raise EntrProtocolError("truncated communication version")
@@ -112,7 +114,7 @@ class Pairing(TransportClient):
             admin_code, const.ADMIN_CODE_LENGTH, "admin code"
         ) + fixed_bytes(app_id, 16, "application id")
         response = await self._send_encrypted(const.CMD_RECOVER_OWNER, fields)
-        validate_response(response, const.CMD_RECOVER_OWNER_RESPONSE, 50)
+        response = validate_response(response, const.CMD_RECOVER_OWNER_RESPONSE, 50)
         # response[0] echoes the inner response command byte; fields start at 1.
         ble_ekey = response[1:33]
         kdf_id = response[33]
@@ -152,7 +154,7 @@ class Pairing(TransportClient):
         )
         if outer_command != const.CMD_GENERAL_ENCRYPTED or response is None:
             raise EntrProtocolError("no encrypted response to SET_OWNER")
-        validate_response(response, const.CMD_SET_OWNER_RESPONSE, 35)
+        response = validate_response(response, const.CMD_SET_OWNER_RESPONSE, 35)
         await self._send_ack(const.CMD_SET_OWNER_ACK)
         # The response carries ekey(32), kdf id, status, then battery percentage
         # past comm version 1.28r1; it has no passcode field.
@@ -181,7 +183,7 @@ class Pairing(TransportClient):
             + bytes([6])
         )
         response = await self._send_encrypted(const.CMD_GET_NEW_KEY, fields)
-        validate_response(response, const.CMD_GET_NEW_KEY_RESPONSE, 52)
+        response = validate_response(response, const.CMD_GET_NEW_KEY_RESPONSE, 52)
         await self._send_ack(const.CMD_GET_NEW_KEY_ACK)
         # Note the field order differs from RecoverOwner's response.
         return {
@@ -205,7 +207,7 @@ class Pairing(TransportClient):
         """
         session = SessionCrypto(key)
         _, payload = await self._send_raw(const.CMD_KDF, bytes([kdf_id, role]))
-        validate_response(payload, const.CMD_KDF_RESPONSE, 89)
+        payload = validate_response(payload, const.CMD_KDF_RESPONSE, 89)
         iv = payload[1:17]
         session.set_iv(iv)
         self.session = session

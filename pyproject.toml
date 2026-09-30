@@ -17,6 +17,11 @@ dependencies = [
 [tool.ruff.lint.per-file-ignores]
 "src/entr_ble/client/*.py" = ["PLR0402"]
 
+[tool.basedpyright]
+typeCheckingMode = "standard"
+include = ["src", "packages/entr-ble-cli/src", "custom_components", "tests", "packages/entr-ble-cli/tests"]
+extraPaths = ["src", "packages/entr-ble-cli/src", "."]
+
 [tool.uv.workspace]
 members = ["packages/entr-ble-cli"]
 
@@ -29,6 +34,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "basedpyright>=1.40.1",
     "ruff>=0.16.9",
 ]
 hacs = [

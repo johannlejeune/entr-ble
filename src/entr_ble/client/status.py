@@ -51,7 +51,7 @@ class Status(TransportClient):
         # The payload byte is an unused placeholder; the command id is in the
         # outer control frame.
         _, payload = await self._send_raw(const.GET_LOCK_SN, bytes([0]))
-        validate_response(payload, const.GET_LOCK_SN_RESPONSE, 3)
+        payload = validate_response(payload, const.GET_LOCK_SN_RESPONSE, 3)
         length = payload[1]
         if len(payload) < 3 + length:
             raise EntrProtocolError("truncated lock serial number")
@@ -76,7 +76,7 @@ class Status(TransportClient):
         raises EntrProtocolError; lock rejection raises EntrLockError.
         """
         response = await self._send_encrypted(const.CMD_GET_DEVICE_CONFIG, b"")
-        validate_response(response, const.CMD_GET_DEVICE_CONFIG_RESPONSE, 2)
+        response = validate_response(response, const.CMD_GET_DEVICE_CONFIG_RESPONSE, 2)
         await self._send_ack(const.CMD_GET_DEVICE_CONFIG_RESPONSE_ACK)
         self.status_raw = response[1]
         config: BasicDeviceConfig = {

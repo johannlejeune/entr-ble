@@ -26,15 +26,16 @@ from .shared import CommandError
 
 
 class HelpFormatter(argparse.RawDescriptionHelpFormatter):
-    def __init__(self, prog):
+    def __init__(self, prog, groups):
         super().__init__(prog, max_help_position=32)
+        self.groups = groups
 
     def _format_action(self, action):
-        if not hasattr(action, "groups"):
+        if not isinstance(action, argparse._SubParsersAction):
             return super()._format_action(action)
         commands = {command.dest: command for command in action._get_subactions()}
         parts = []
-        for title, names in action.groups:
+        for title, names in self.groups:
             parts.append(f"{' ' * self._current_indent}{title}:\n")
             self._indent()
             for name in names:
@@ -45,11 +46,12 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
 
 
 def main() -> None:
+    groups = []
     parser = argparse.ArgumentParser(
         prog="entr-ble",
         description="Set up and control an ENTR Bluetooth lock.",
         usage="%(prog)s [options] COMMAND ...",
-        formatter_class=HelpFormatter,
+        formatter_class=lambda prog: HelpFormatter(prog, groups),
         epilog=(
             "Getting started:\n"
             "  1. Find your lock: entr-ble scan\n"
@@ -66,7 +68,6 @@ def main() -> None:
         "-q", "--quiet", action="store_true", help="hide progress messages"
     )
     sub = parser.add_subparsers(dest="command", title="commands", metavar="COMMAND")
-    sub.groups = []
     for title, modules in (
         ("Discovery and setup", (discovery, setup)),
         ("Lock control", (access,)),
@@ -79,9 +80,7 @@ def main() -> None:
         existing = set(sub.choices)
         for module in modules:
             module.register(sub)
-        sub.groups.append(
-            (title, [name for name in sub.choices if name not in existing])
-        )
+        groups.append((title, [name for name in sub.choices if name not in existing]))
     for command in sub.choices.values():
         command.add_argument(
             "-q",
