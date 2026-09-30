@@ -1,4 +1,7 @@
-from .common import handle
+from entr_ble import const
+
+from ..shared import CommandError
+from ..store import remove as remove_credentials
 
 
 def register(sub):
@@ -20,20 +23,24 @@ def register(sub):
         default="normal",
         help="lock type (default: normal)",
     )
+    p.set_defaults(run=run)
 
     p = sub.add_parser(
         "magnet-calibrate", help="teach the lock the door magnet position"
     )
     p.add_argument("address")
     p.add_argument("admin_code")
+    p.set_defaults(run=run)
 
     p = sub.add_parser("factory-reset", help="wipe every user and setting on the lock")
     p.add_argument("address")
     p.add_argument("admin_code")
     p.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
+    p.set_defaults(run=run)
 
     p = sub.add_parser("set-time", help="set the lock clock to current UTC time")
     p.add_argument("address")
+    p.set_defaults(run=run)
 
     p = sub.add_parser("audit-trail", help="dump the event log (NIZ firmware)")
     p.add_argument("address")
@@ -43,6 +50,7 @@ def register(sub):
         default=None,
         help="defaults to the factory audit code Aa1111",
     )
+    p.set_defaults(run=run)
 
     p = sub.add_parser(
         "get-errors", help="dump the firmware fault log (empty on ENTR EURO)"
@@ -56,15 +64,58 @@ def register(sub):
     p.add_argument(
         "--raw", action="store_true", help="also print the undecoded response bytes"
     )
+    p.set_defaults(run=run)
 
-    return {
-        name: handle
-        for name in (
-            "calibrate",
-            "magnet-calibrate",
-            "factory-reset",
-            "set-time",
-            "audit-trail",
-            "get-errors",
+
+async def run(client, creds, args) -> list[str]:
+    app_id = bytes.fromhex(creds.app_id)
+    if args.command == "calibrate":
+        door = args.door
+        lock_type = args.type
+        await client.calibrate(
+            app_id,
+            args.admin_code,
+            {"left": 1, "right": 3}[door],
+            {"normal": 0, "lift": 2}[lock_type],
         )
-    }
+        return [
+            f"calibration done (door {door}, lock type {lock_type})",
+            "now run magnet-calibrate with the door magnet in place",
+        ]
+    if args.command == "magnet-calibrate":
+        await client.magnet_calibrate(app_id, args.admin_code)
+        return ["magnet calibration done"]
+    if args.command == "factory-reset":
+        await client.factory_reset(app_id, args.admin_code)
+        remove_credentials(creds.address)
+        return ["factory reset done, local credentials removed"]
+    if args.command == "set-time":
+        await client.update_time(app_id)
+        return ["lock time set to current UTC time"]
+    if args.command == "audit-trail":
+        code = args.admin_code or const.DEFAULT_AUDIT_PASSWORD
+        status = await client.audit_trail_status(code, app_id)
+        records = await client.audit_trail_records(code, app_id)
+        return [f"records in log: {status['records_count']}"] + [
+            f"{r.get('date', '?')}  {r.get('event', '?'):<18}  {r.get('user', '?') or '-'}"
+            for r in records
+        ]
+    if args.command == "get-errors":
+        try:
+            query = bytes.fromhex(args.query)
+        except ValueError as exc:
+            raise CommandError("--query must be hex, e.g. 0000000000000000") from exc
+        result = await client.get_errors(query)
+        lines = []
+        if result["empty"]:
+            lines.append(f"no errors logged ({result['length']} bytes, all zero)")
+        if not result["empty"] or args.raw:
+            data = bytes.fromhex(result["data"])
+            lines.extend(
+                f"{offset:04x}  {data[offset : offset + 8].hex(' ')}"
+                for offset in range(0, len(data), 8)
+            )
+        if args.raw:
+            lines.append(f"raw: {result['raw']}")
+        return lines
+    raise ValueError(args.command)

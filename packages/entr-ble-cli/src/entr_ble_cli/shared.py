@@ -1,17 +1,9 @@
 import secrets
-from typing import Protocol
 
 from entr_ble import const
-from entr_ble.client import EntrLockClient, EntrProtocolError
+from entr_ble.client import EntrProtocolError
 
 from .store import LockCredentials
-
-
-class SessionLike(Protocol):
-    address: str
-    client: EntrLockClient
-    credentials: LockCredentials | None
-
 
 ROLE_CHOICES = {
     "user": const.ROLE_USER,
@@ -62,9 +54,7 @@ def require_admin(creds: LockCredentials) -> None:
         )
 
 
-async def user_role(
-    client: EntrLockClient, admin_code: str, app_id: bytes, name: str
-) -> int:
+async def user_role(client, admin_code: str, app_id: bytes, name: str) -> int:
     users = await client.list_users(admin_code, app_id)
     for user in users:
         if user["name"] == name:

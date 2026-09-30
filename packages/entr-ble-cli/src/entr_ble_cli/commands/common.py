@@ -1,8 +1,10 @@
 import argparse
 
-from ..discovery import scan
+from entr_ble.client import EntrLockClient
+
 from ..shared import CommandError
-from ..workflows import LockSession
+from ..store import get as get_credentials
+from .discovery import scan
 
 
 async def handle(args: argparse.Namespace) -> None:
@@ -15,10 +17,23 @@ async def handle(args: argparse.Namespace) -> None:
             )
             if answer.strip().lower() != "yes":
                 raise CommandError("aborted")
-        async with LockSession(args.address) as session:
-            params = vars(args).copy()
-            params.pop("command")
-            params.pop("address")
-            lines = await session.run(args.command, **params)
+        credentials = get_credentials(args.address)
+        client = EntrLockClient(args.address)
+        try:
+            await client.connect()
+            await client.fetch_comm_version()
+            if credentials is not None:
+                await client.kdf_resync(
+                    credentials.kdf_id,
+                    credentials.role,
+                    bytes.fromhex(credentials.aes_key),
+                )
+            if credentials is None and not getattr(args, "setup", False):
+                raise CommandError(
+                    f"no credentials for {args.address}, run 'enroll' or 'set-owner' first"
+                )
+            lines = await args.run(client, credentials, args)
+        finally:
+            await client.disconnect()
     for line in lines:
         print(line)
