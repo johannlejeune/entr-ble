@@ -834,7 +834,7 @@ wheels = [
 
 [[package]]
 name = "entr-ble"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "bleak" },
@@ -862,7 +862,7 @@ hacs = [{ name = "homeassistant", marker = "python_full_version >= '3.14.2'", sp
 
 [[package]]
 name = "entr-ble-cli"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "packages/entr-ble-cli" }
 dependencies = [
     { name = "entr-ble" },

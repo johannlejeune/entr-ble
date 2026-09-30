@@ -1,11 +1,11 @@
 {
   "domain": "entr_ble",
   "name": "ENTR BLE",
-  "codeowners": [],
+  "codeowners": ["@johannlejeune"],
   "config_flow": true,
   "dependencies": ["bluetooth"],
   "iot_class": "assumed_state",
   "integration_type": "device",
-  "requirements": ["entr-ble==0.1.0"],
-  "version": "0.1.0"
+  "requirements": ["entr-ble==1.0.0"],
+  "version": "1.0.0"
 }

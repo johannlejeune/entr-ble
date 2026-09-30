@@ -6,7 +6,7 @@ This repository contains a Python library, command-line interface, and Home Assi
 
 - `src/entr_ble`: BLE protocol, pairing, lock operations, and response decoding; distributed as `entr-ble`.
 - `packages/entr-ble-cli`: command-line tools and the local credentials store; distributed as `entr-ble-cli` and provides the `entr-ble` command.
-- `custom_components/entr_ble`: Home Assistant integration; installed through HACS after the library is published.
+- `custom_components/entr_ble`: Home Assistant custom integration for HACS.
 
 The library has no dependency on the CLI or Home Assistant. Both frontends use the same library API.
 
@@ -77,10 +77,6 @@ After a restart, the integration restores the last displayed values, makes one b
 
 Lock and Unlock display the commanded state after success. Sync replaces the displayed state with the lock's reported state, which may be stale after manual operation; the direct buttons send commands regardless of that state. See [protocol notes](docs/PROTOCOL.md) for firmware limitations.
 
-Automatic HACS installation requires the `entr-ble` dependency on a package index and real project URLs in the integration manifest.
+## License
 
-## Publication
-
-Before the first public release, choose a license and add its file and package metadata, set the public repository URLs and GitHub code owner in the integration manifest, and publish the library version required by that manifest. Publish the CLI after the matching library version. Installation through HACS depends on those release steps; building locally does not publish anything.
-
-The integration brand images use the [ASSA ABLOY logotype](https://brand.assaabloy.com/en/how-we-look/logotype); the project's code license must not imply ownership of those marks.
+The code is licensed under the [MIT License](LICENSE).
