@@ -1,3 +1,4 @@
+import logging
 import os
 
 from entr_ble import const
@@ -6,6 +7,8 @@ from entr_ble.client import EntrLockError, build_lock_name, user_id_bytes
 from ..shared import CommandError
 from ..store import LockCredentials
 from ..store import put as put_credentials
+
+logger = logging.getLogger(__name__)
 
 
 def register(sub):
@@ -59,6 +62,7 @@ async def run(client, credentials, args) -> list[str]:
     if credentials is not None:
         raise CommandError("this lock already has local credentials")
     app_id = os.urandom(16)
+    logger.info("Setting up access to the lock...")
     await client.pair()
     await client.handshake(app_id)
     role = const.ROLE_OWNER
@@ -95,6 +99,7 @@ async def run(client, credentials, args) -> list[str]:
         role=role,
         lock_name=lock_name,
     )
+    logger.info("Saving your key...")
     put_credentials(credentials)
     lines = [prefix, f"credentials saved for {args.address}"]
     if args.command == "set-owner":

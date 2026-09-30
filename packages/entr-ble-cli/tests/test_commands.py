@@ -4,6 +4,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+from bleak.exc import BleakError
 from entr_ble_cli.commands import (
     access,
     common,
@@ -73,6 +74,24 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
                         await common.handle(arguments("unlock", "AA"))
                     self.client.disconnect.assert_awaited_once()
                     method.side_effect = None
+
+    async def test_cleanup_failure_preserves_original_error(self):
+        self.client.connect.side_effect = TimeoutError()
+        self.client.disconnect.side_effect = BleakError("already disconnected")
+        with (
+            self.assertLogs(common.logger, level="WARNING") as logs,
+            self.assertRaises(TimeoutError),
+        ):
+            await common.handle(arguments("unlock", "AA"))
+        self.assertIn("Could not close", logs.output[0])
+
+    async def test_missing_credentials_do_not_connect(self):
+        with (
+            patch.object(common, "get_credentials", return_value=None),
+            self.assertRaisesRegex(common.CommandError, "No saved key"),
+        ):
+            await common.handle(arguments("unlock", "AA"))
+        self.client.connect.assert_not_awaited()
 
     async def test_settings_preserve_unspecified_state_and_accessory_metadata(self):
         self.client.status_raw = 0xFA

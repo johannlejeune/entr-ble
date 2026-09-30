@@ -2,7 +2,9 @@
 
 From the repository root, run `uv sync --package entr-ble-cli`, then `uv run --package entr-ble-cli entr-ble --help`. Python 3.14 or later and a working Bluetooth adapter are required.
 
-Run `entr-ble --help` to list commands. Use `entr-ble scan` to find nearby locks, then pass a lock's Bluetooth address to commands that need one. Each command opens its own connection.
+Run `entr-ble` or `entr-ble --help` to list all commands and setup guidance. Use `entr-ble scan` to find nearby locks, then pass a lock's Bluetooth address to commands that need one. Run `entr-ble COMMAND --help` for that command's arguments and options. Each command opens its own connection.
+
+Add `-v` or `--verbose` before or after the command to see progress, for example `entr-ble --verbose status ADDRESS`. Progress goes to stderr; results go to stdout. Expected Bluetooth and lock failures show a short error with guidance; unexpected internal errors retain their traceback.
 
 Credentials are stored locally in `~/.config/entr-ble/credentials.json`, with access restricted to the current user. Set `ENTR_BLE_STORE` to use another path. This file contains keys that grant access to the lock: keep it private and out of version control. It is not encrypted at rest.
 
