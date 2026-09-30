@@ -5,6 +5,7 @@ from ..shared import (
     CONTROL_UNIT_ROLES,
     ROLE_CHOICES,
     CommandError,
+    add_password_argument,
     generate_key_code,
     require_admin,
     user_role,
@@ -16,14 +17,14 @@ def register(sub):
         "list-users", help="list users, including ones still pending activation"
     )
     p.add_argument("address")
-    p.add_argument("admin_code")
+    add_password_argument(p)
     p.set_defaults(run=run)
 
     p = sub.add_parser(
         "create-user", help="create a pending user and print its key code"
     )
     p.add_argument("address")
-    p.add_argument("admin_code")
+    add_password_argument(p)
     p.add_argument("name", help="user name, also its identifier (16 chars max)")
     p.add_argument(
         "--role",
@@ -42,30 +43,29 @@ def register(sub):
     p.set_defaults(run=run)
 
     p = sub.add_parser(
-        "set-admin-code", help="set this admin key's own code (admins only)"
+        "set-admin-code",
+        help="set this admin key's own code (admins only)",
+        epilog="Choose six characters including a lowercase letter, an uppercase letter, and a digit from 1 to 9.",
     )
     p.add_argument("address")
-    p.add_argument(
-        "admin_code",
-        help="6 characters, needs a lowercase, an uppercase and a digit 1-9",
-    )
+    add_password_argument(p, "New admin password: ")
     p.set_defaults(run=run)
 
     p = sub.add_parser("delete-user", help="revoke a user permanently")
     p.add_argument("address")
-    p.add_argument("admin_code")
+    add_password_argument(p)
     p.add_argument("name")
     p.set_defaults(run=run)
 
     p = sub.add_parser("disable-user", help="suspend a user without revoking it")
     p.add_argument("address")
-    p.add_argument("admin_code")
+    add_password_argument(p)
     p.add_argument("name")
     p.set_defaults(run=run)
 
     p = sub.add_parser("enable-user", help="re-enable a suspended user")
     p.add_argument("address")
-    p.add_argument("admin_code")
+    add_password_argument(p)
     p.add_argument("name")
     p.set_defaults(run=run)
 

@@ -1,6 +1,6 @@
 from entr_ble import const
 
-from ..shared import CommandError
+from ..shared import CommandError, add_password_argument
 from ..store import remove as remove_credentials
 
 
@@ -10,7 +10,7 @@ def register(sub):
         help="run the mechanical calibration (uninitialized or erratic locks)",
     )
     p.add_argument("address")
-    p.add_argument("admin_code")
+    add_password_argument(p)
     p.add_argument(
         "--door",
         choices=["left", "right"],
@@ -29,12 +29,12 @@ def register(sub):
         "magnet-calibrate", help="teach the lock the door magnet position"
     )
     p.add_argument("address")
-    p.add_argument("admin_code")
+    add_password_argument(p)
     p.set_defaults(run=run)
 
     p = sub.add_parser("factory-reset", help="wipe every user and setting on the lock")
     p.add_argument("address")
-    p.add_argument("admin_code")
+    add_password_argument(p)
     p.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
     p.set_defaults(run=run)
 
@@ -44,12 +44,10 @@ def register(sub):
 
     p = sub.add_parser("audit-trail", help="dump the event log (NIZ firmware)")
     p.add_argument("address")
-    p.add_argument(
-        "admin_code",
-        nargs="?",
-        default=None,
-        help="defaults to the factory audit code Aa1111",
+    add_password_argument(
+        p, "Admin password (Enter for factory audit password Aa1111): "
     )
+    p.set_defaults(password_default=const.DEFAULT_AUDIT_PASSWORD)
     p.set_defaults(run=run)
 
     p = sub.add_parser(
@@ -93,7 +91,7 @@ async def run(client, creds, args) -> list[str]:
         await client.update_time(app_id)
         return ["lock time set to current UTC time"]
     if args.command == "audit-trail":
-        code = args.admin_code or const.DEFAULT_AUDIT_PASSWORD
+        code = args.admin_code
         status = await client.audit_trail_status(code, app_id)
         records = await client.audit_trail_records(code, app_id)
         return [f"records in log: {status['records_count']}"] + [

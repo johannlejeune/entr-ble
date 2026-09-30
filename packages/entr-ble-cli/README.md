@@ -12,6 +12,8 @@ Writes replace the credentials file atomically. Use one process at a time when m
 
 To import a saved key into Home Assistant, run `entr-ble export-homeassistant ADDRESS`. In the ENTR BLE integration's setup, choose **Import existing credentials**, enter the same Bluetooth address, and paste the command's JSON output into the credentials JSON field. Export reads the local store without connecting to the lock or changing credentials. The JSON contains your access keys; keep it private.
 
-Owner enrollment replaces the lock's current owner slot. A factory reset erases lock users and settings and removes the local credentials after success; it asks for confirmation unless `--yes` is supplied. Passwords passed as command arguments may be recorded in shell history.
+Commands that need an admin password ask for it without displaying what you type, before connecting to the lock. Use `-p PASSWORD` or `--password PASSWORD` to supply it directly, for example `entr-ble settings ADDRESS --volume medium -p Aa1234`. Passwords are no longer positional arguments: `entr-ble create-user ADDRESS Guest` prompts for the admin password. New owner and admin passwords are also prompted when setting them. `change-admin-code` asks for the current and new passwords; use `-p CURRENT --new-password NEW` to supply both directly. `audit-trail` lets you press Enter at the prompt to use the factory audit password. In scripts without a terminal, supply the password explicitly. Passwords passed as command arguments may be recorded in shell history.
+
+Owner enrollment replaces the lock's current owner slot. A factory reset erases lock users and settings and removes the local credentials after success; it asks for confirmation unless `--yes` is supplied.
 
 Run the CLI tests without Bluetooth hardware with `uv run --package entr-ble-cli python -m unittest discover -s packages/entr-ble-cli/tests` from the repository root.

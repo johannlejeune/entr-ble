@@ -4,7 +4,7 @@ import os
 from entr_ble import const
 from entr_ble.client import EntrLockError, build_lock_name, user_id_bytes
 
-from ..shared import CommandError
+from ..shared import CommandError, add_password_argument
 from ..store import LockCredentials
 from ..store import put as put_credentials
 
@@ -17,7 +17,7 @@ def register(sub):
         help="first-time setup of an uninitialized lock (factory admin code 000000 replaced)",
     )
     p.add_argument("address")
-    p.add_argument("admin_code", help="the new owner password, 6 characters")
+    add_password_argument(p, "New owner password: ")
     p.add_argument(
         "--name",
         required=True,
@@ -46,7 +46,7 @@ def register(sub):
         help="claim the single owner slot, revoking whichever device currently holds it",
     )
     p.add_argument("address")
-    p.add_argument("admin_code", help="the owner password, 6 characters")
+    add_password_argument(p, "Owner password: ")
     p.add_argument("--name", help="lock name, stored for later settings commands")
     p.set_defaults(run=run, setup=True)
 

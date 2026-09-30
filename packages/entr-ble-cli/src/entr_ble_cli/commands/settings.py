@@ -1,6 +1,6 @@
 from entr_ble.client import EntrLockClient, build_lock_name, settings_status_byte
 
-from ..shared import VOLUME_CHOICES, CommandError, require_admin
+from ..shared import VOLUME_CHOICES, CommandError, add_password_argument, require_admin
 from ..store import LockCredentials
 from ..store import put as put_credentials
 
@@ -10,8 +10,13 @@ def register(sub):
         "change-admin-code", help="change the lock's admin code (admins and owners)"
     )
     p.add_argument("address")
-    p.add_argument("old_code")
-    p.add_argument("new_code")
+    add_password_argument(p, "Current admin password: ")
+    p.add_argument(
+        "--new-password",
+        dest="new_code",
+        metavar="PASSWORD",
+        help="new admin password, 6 characters (asked securely if omitted)",
+    )
     p.add_argument(
         "--name",
         help="lock name, only needed if never stored by set-owner/settings/enroll",
@@ -20,7 +25,7 @@ def register(sub):
 
     p = sub.add_parser("settings", help="volume, mute and auto-lock (owners)")
     p.add_argument("address")
-    p.add_argument("admin_code")
+    add_password_argument(p)
     p.add_argument(
         "--volume",
         choices=VOLUME_CHOICES,
@@ -38,7 +43,7 @@ async def run(client, creds, args) -> list[str]:
     require_admin(creds)
     if args.command == "change-admin-code":
         await _send_device_config(
-            client, creds, args.old_code, args.new_code, None, None, args.name
+            client, creds, args.admin_code, args.new_code, None, None, args.name
         )
         return ["admin code changed"]
     auto_lock = {"on": True, "off": False}.get(args.auto_lock or "")

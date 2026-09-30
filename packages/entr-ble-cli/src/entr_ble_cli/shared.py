@@ -34,6 +34,17 @@ class CommandError(Exception):
     pass
 
 
+def add_password_argument(parser, prompt="Admin password: "):
+    parser.add_argument(
+        "-p",
+        "--password",
+        dest="admin_code",
+        metavar="PASSWORD",
+        help=f"{prompt.removesuffix(': ')} (6 characters; asked securely if omitted)",
+    )
+    parser.set_defaults(password_prompt=prompt)
+
+
 def generate_key_code() -> str:
     while True:
         code = "".join(

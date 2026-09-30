@@ -1,5 +1,7 @@
 import argparse
+import getpass
 import logging
+import warnings
 
 from bleak.exc import BleakError
 
@@ -28,6 +30,18 @@ async def handle(args: argparse.Namespace) -> None:
             raise CommandError(
                 f"No saved key for {args.address}. Run 'entr-ble activate --help' to use an existing key, or 'entr-ble enroll --help' to become the owner."
             )
+        if hasattr(args, "admin_code"):
+            if args.admin_code is None:
+                args.admin_code = read_password(args.password_prompt, "-p / --password")
+            if not args.admin_code:
+                args.admin_code = getattr(args, "password_default", None)
+            if not args.admin_code:
+                raise CommandError("The admin password cannot be empty.")
+        if hasattr(args, "new_code"):
+            if args.new_code is None:
+                args.new_code = read_password("New admin password: ", "--new-password")
+            if not args.new_code:
+                raise CommandError("The new admin password cannot be empty.")
         client = EntrLockClient(args.address)
         try:
             logger.info("Connecting to %s...", args.address)
@@ -51,3 +65,14 @@ async def handle(args: argparse.Namespace) -> None:
                 logger.warning("Could not close the Bluetooth connection cleanly.")
     for line in lines:
         print(line)
+
+
+def read_password(prompt, option):
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", getpass.GetPassWarning)
+            return getpass.getpass(prompt)
+    except getpass.GetPassWarning, EOFError:
+        raise CommandError(
+            f"Could not read a hidden password. Run in a terminal or supply it with {option}."
+        ) from None
