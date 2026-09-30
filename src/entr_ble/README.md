@@ -8,6 +8,14 @@
 
 Requires **Python 3.14+** and a working Bluetooth adapter. On Linux, Bluetooth access uses BlueZ and the system D-Bus.
 
+Add the library to your project:
+
+```sh
+uv add entr-ble
+```
+
+For environments using pip, use `pip install entr-ble`.
+
 From a checkout, install the library into the repository's virtual environment:
 
 ```sh
@@ -28,6 +36,7 @@ The package is named `entr-ble`; import it as `entr_ble`. For a terminal command
 
 ```python
 from entr_ble import EntrLockClient
+
 
 async def read_status(address, kdf_id, role, aes_key):
     client = EntrLockClient(address)

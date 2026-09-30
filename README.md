@@ -63,6 +63,10 @@ uv build --all-packages --no-sources
 
 Tests simulate BLE responses and do not operate a physical lock. The [CI workflow](.github/workflows/check.yml) also validates the integration with Hassfest and HACS. Builds produce separate library and CLI wheels and source distributions in `dist/`; hardware behavior still needs verification on the target lock.
 
+## Releases
+
+All components release together with one version and [changelog](CHANGELOG.md). Release Please prepares a release PR; merging it runs the checks, publishes both Python packages to PyPI, and publishes the matching GitHub release for HACS. See [release setup and recovery](docs/RELEASING.md).
+
 ## Support and license
 
 [Report an issue](https://github.com/johannlejeune/entr-ble/issues) with the component, software version, lock model, communication version if known, and the command or action that failed. Remove credentials and passwords from anything you share.

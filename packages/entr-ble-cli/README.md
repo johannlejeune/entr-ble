@@ -8,13 +8,14 @@
 
 Requires **Python 3.14+** and a working Bluetooth adapter. On Linux, Bluetooth access requires BlueZ and access to the system D-Bus.
 
-Install the CLI as an isolated tool directly from this repository:
+Run the CLI without a checkout:
 
 ```sh
-uv tool install "git+https://github.com/johannlejeune/entr-ble.git#subdirectory=packages/entr-ble-cli" \
-  --with "entr-ble @ git+https://github.com/johannlejeune/entr-ble.git"
-entr-ble-cli --help
+uvx entr-ble-cli --help
+uvx entr-ble-cli scan
 ```
+
+For a persistent command, use `uv tool install entr-ble-cli`, then run `entr-ble-cli` directly. With `uvx`, prefix the commands below with `uvx`.
 
 Alternatively, from a checkout, run:
 
