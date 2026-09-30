@@ -44,7 +44,7 @@ def main() -> None:
         ),
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", help="show progress while working"
+        "-q", "--quiet", action="store_true", help="hide progress messages"
     )
     sub = parser.add_subparsers(dest="command", title="commands", metavar="COMMAND")
     for module in (
@@ -60,11 +60,11 @@ def main() -> None:
         module.register(sub)
     for command in sub.choices.values():
         command.add_argument(
-            "-v",
-            "--verbose",
+            "-q",
+            "--quiet",
             action="store_true",
             default=argparse.SUPPRESS,
-            help="show progress while working",
+            help="hide progress messages",
         )
     args = parser.parse_args()
     if args.command is None:
@@ -72,7 +72,7 @@ def main() -> None:
         return
     logger = logging.getLogger("entr_ble_cli")
     logger.handlers = [logging.StreamHandler()]
-    logger.setLevel(logging.INFO if args.verbose else logging.WARNING)
+    logger.setLevel(logging.WARNING if args.quiet else logging.INFO)
     logger.propagate = False
     try:
         if args.command == "export-homeassistant":

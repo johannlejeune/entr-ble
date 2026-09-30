@@ -33,7 +33,7 @@ class ExportTests(unittest.TestCase):
         store.put(other, self.path)
         original = self.path.read_bytes()
         with (
-            patch("sys.argv", ["entr-ble", "export-homeassistant", "aa", "--verbose"]),
+            patch("sys.argv", ["entr-ble", "export-homeassistant", "aa"]),
             patch.object(
                 config,
                 "get_credentials",

@@ -77,7 +77,28 @@ class CliTests(unittest.TestCase):
         ):
             cli.main()
 
-    def test_verbose_before_or_after_command_logs_only_cli_progress_to_stderr(self):
+    def test_quiet_keeps_errors_and_warnings_visible(self):
+        async def handle(args):
+            logging.getLogger("entr_ble_cli.commands.common").info("Connecting...")
+            logging.getLogger("entr_ble_cli.commands.common").warning(
+                "Connection cleanup failed."
+            )
+            raise BleakError("raw error")
+
+        with (
+            patch("sys.argv", ["entr-ble", "--quiet", "scan"]),
+            patch.object(cli, "handle", handle),
+            patch("sys.stderr") as stderr,
+            self.assertRaises(SystemExit) as caught,
+        ):
+            cli.main()
+        output = "".join(call.args[0] for call in stderr.write.call_args_list)
+        self.assertEqual(caught.exception.code, 1)
+        self.assertNotIn("Connecting...", output)
+        self.assertIn("Connection cleanup failed.", output)
+        self.assertIn("Error: Bluetooth communication failed", output)
+
+    def test_default_progress_and_quiet_before_or_after_command_keep_stdout_clean(self):
         async def handle(args):
             logging.getLogger("entr_ble_cli.commands.common").info(
                 "Connecting to AA..."
@@ -85,11 +106,11 @@ class CliTests(unittest.TestCase):
             logging.getLogger("bleak").info("technical details")
             print("result")
 
-        for arguments, verbose in (
+        for arguments, quiet in (
             (["scan"], False),
-            (["--verbose", "scan"], True),
-            (["scan", "-v"], True),
-            (["-v", "scan", "--verbose"], True),
+            (["--quiet", "scan"], True),
+            (["scan", "-q"], True),
+            (["-q", "scan", "--quiet"], True),
         ):
             with (
                 self.subTest(arguments=arguments),
@@ -102,5 +123,5 @@ class CliTests(unittest.TestCase):
             progress = "".join(call.args[0] for call in stderr.write.call_args_list)
             output = "".join(call.args[0] for call in stdout.write.call_args_list)
             self.assertEqual(output, "result\n")
-            self.assertEqual("Connecting to AA..." in progress, verbose)
+            self.assertEqual("Connecting to AA..." in progress, not quiet)
             self.assertNotIn("technical details", progress)
