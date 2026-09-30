@@ -5,10 +5,7 @@ from ..store import remove as remove_credentials
 
 
 def register(sub):
-    p = sub.add_parser(
-        "calibrate",
-        help="run the mechanical calibration (uninitialized or erratic locks)",
-    )
+    p = sub.add_parser("calibrate", help="calibrate the lock")
     p.add_argument("address")
     add_password_argument(p)
     p.add_argument(
@@ -25,24 +22,16 @@ def register(sub):
     )
     p.set_defaults(run=run)
 
-    p = sub.add_parser(
-        "magnet-calibrate", help="teach the lock the door magnet position"
-    )
+    p = sub.add_parser("magnet-calibrate", help="calibrate the door magnet")
     p.add_argument("address")
     add_password_argument(p)
     p.set_defaults(run=run)
 
-    p = sub.add_parser("factory-reset", help="wipe every user and setting on the lock")
-    p.add_argument("address")
-    add_password_argument(p)
-    p.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
-    p.set_defaults(run=run)
-
-    p = sub.add_parser("set-time", help="set the lock clock to current UTC time")
+    p = sub.add_parser("set-time", help="set the lock clock")
     p.add_argument("address")
     p.set_defaults(run=run)
 
-    p = sub.add_parser("audit-trail", help="dump the event log (NIZ firmware)")
+    p = sub.add_parser("audit-trail", help="show the event log")
     p.add_argument("address")
     add_password_argument(
         p, "Admin password (Enter for factory audit password Aa1111): "
@@ -50,18 +39,22 @@ def register(sub):
     p.set_defaults(password_default=const.DEFAULT_AUDIT_PASSWORD)
     p.set_defaults(run=run)
 
-    p = sub.add_parser(
-        "get-errors", help="dump the firmware fault log (empty on ENTR EURO)"
-    )
+    p = sub.add_parser("get-errors", help="show the error log")
     p.add_argument("address")
     p.add_argument(
         "--query",
         default="00" * 8,
-        help="8-byte query hex, meaning unknown, ignored by the lock (default: zeros)",
+        help="8-byte query in hexadecimal (default: zeros)",
     )
     p.add_argument(
         "--raw", action="store_true", help="also print the undecoded response bytes"
     )
+    p.set_defaults(run=run)
+
+    p = sub.add_parser("factory-reset", help="erase all users and settings")
+    p.add_argument("address")
+    add_password_argument(p)
+    p.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
     p.set_defaults(run=run)
 
 

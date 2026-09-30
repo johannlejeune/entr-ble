@@ -25,12 +25,31 @@ from .commands.common import handle
 from .shared import CommandError
 
 
+class HelpFormatter(argparse.RawDescriptionHelpFormatter):
+    def __init__(self, prog):
+        super().__init__(prog, max_help_position=32)
+
+    def _format_action(self, action):
+        if not hasattr(action, "groups"):
+            return super()._format_action(action)
+        commands = {command.dest: command for command in action._get_subactions()}
+        parts = []
+        for title, names in action.groups:
+            parts.append(f"{' ' * self._current_indent}{title}:\n")
+            self._indent()
+            for name in names:
+                parts.append(super()._format_action(commands[name]))
+            self._dedent()
+            parts.append("\n")
+        return "".join(parts)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="entr-ble",
         description="Set up and control an ENTR Bluetooth lock.",
         usage="%(prog)s [options] COMMAND ...",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=HelpFormatter,
         epilog=(
             "Getting started:\n"
             "  1. Find your lock: entr-ble scan\n"
@@ -47,17 +66,22 @@ def main() -> None:
         "-q", "--quiet", action="store_true", help="hide progress messages"
     )
     sub = parser.add_subparsers(dest="command", title="commands", metavar="COMMAND")
-    for module in (
-        discovery,
-        setup,
-        access,
-        users,
-        settings,
-        status,
-        maintenance,
-        config,
+    sub.groups = []
+    for title, modules in (
+        ("Discovery and setup", (discovery, setup)),
+        ("Lock control", (access,)),
+        ("Status and information", (status,)),
+        ("Users and keys", (users,)),
+        ("Settings", (settings,)),
+        ("Maintenance and logs", (maintenance,)),
+        ("Home Assistant", (config,)),
     ):
-        module.register(sub)
+        existing = set(sub.choices)
+        for module in modules:
+            module.register(sub)
+        sub.groups.append(
+            (title, [name for name in sub.choices if name not in existing])
+        )
     for command in sub.choices.values():
         command.add_argument(
             "-q",

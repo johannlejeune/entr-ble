@@ -13,24 +13,22 @@ from ..shared import (
 
 
 def register(sub):
-    p = sub.add_parser(
-        "list-users", help="list users, including ones still pending activation"
-    )
+    p = sub.add_parser("list-users", help="list users")
     p.add_argument("address")
     add_password_argument(p)
     p.set_defaults(run=run)
 
     p = sub.add_parser(
-        "create-user", help="create a pending user and print its key code"
+        "create-user", help="create a user and print its activation code"
     )
     p.add_argument("address")
     add_password_argument(p)
-    p.add_argument("name", help="user name, also its identifier (16 chars max)")
+    p.add_argument("name", help="user name (up to 16 characters)")
     p.add_argument(
         "--role",
         choices=ROLE_CHOICES,
         default="user",
-        help="user, admin, or a radio accessory (remote-control/wall-reader/integration-unit)",
+        help="role for the new key",
     )
     p.add_argument(
         "--expiration",
@@ -44,17 +42,11 @@ def register(sub):
 
     p = sub.add_parser(
         "set-admin-code",
-        help="set this admin key's own code (admins only)",
+        help="set this admin key's password",
         epilog="Choose six characters including a lowercase letter, an uppercase letter, and a digit from 1 to 9.",
     )
     p.add_argument("address")
     add_password_argument(p, "New admin password: ")
-    p.set_defaults(run=run)
-
-    p = sub.add_parser("delete-user", help="revoke a user permanently")
-    p.add_argument("address")
-    add_password_argument(p)
-    p.add_argument("name")
     p.set_defaults(run=run)
 
     p = sub.add_parser("disable-user", help="suspend a user without revoking it")
@@ -64,6 +56,12 @@ def register(sub):
     p.set_defaults(run=run)
 
     p = sub.add_parser("enable-user", help="re-enable a suspended user")
+    p.add_argument("address")
+    add_password_argument(p)
+    p.add_argument("name")
+    p.set_defaults(run=run)
+
+    p = sub.add_parser("delete-user", help="revoke a user permanently")
     p.add_argument("address")
     add_password_argument(p)
     p.add_argument("name")

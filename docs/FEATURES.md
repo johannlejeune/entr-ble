@@ -13,7 +13,7 @@ This document lists the features supported by the library and CLI. Firmware supp
 | Read lock and battery status | GET_DEVICE_CONFIG (30) | `status` | |
 | List and manage users | GET_KEYS (26), CREATE_NEW_KEY (15), REVOKE_KEY (28), DISABLE_KEY (29), ENABLE_KEY (32) | `list-users`, `create-user`, `delete-user`, `disable-user`, `enable-user` | User listings may arrive in several frames. |
 | Set an admin's personal code | SET_ADMIN_CODE (36) | `set-admin-code` | |
-| Change volume, mute, auto-lock or owner admin code | OP_DEVICE_CONFIG (47) | `settings`, `change-admin-code` | Owner credentials are required. |
+| Change volume, mute, auto-lock or admin code | OP_DEVICE_CONFIG (47) | `settings`, `change-admin-code` | Reads the current configuration before applying changes. |
 | Calibrate the lock and door magnet | OP_LOCK_CALIB (51), OP_MAGNET_CALIB (52) | `calibrate`, `magnet-calibrate` | Mechanical calibration may be needed after setup. |
 | Restore factory settings | OP_FACTORY_RESET (53) | `factory-reset` | Removes local credentials after success. |
 | Set the lock clock | UPDATE_TIME (80) | `set-time` | NIZ firmware only. |

@@ -6,9 +6,22 @@ from ..store import put as put_credentials
 
 
 def register(sub):
-    p = sub.add_parser(
-        "change-admin-code", help="change the lock's admin code (admins and owners)"
+    p = sub.add_parser("settings", help="change lock settings")
+    p.add_argument("address")
+    add_password_argument(p)
+    p.add_argument(
+        "--volume",
+        choices=VOLUME_CHOICES,
+        help="sound volume",
     )
+    p.add_argument("--auto-lock", choices=["on", "off"])
+    p.add_argument(
+        "--name",
+        help="lock name, if not saved locally",
+    )
+    p.set_defaults(run=run)
+
+    p = sub.add_parser("change-admin-code", help="change the lock's admin password")
     p.add_argument("address")
     add_password_argument(p, "Current admin password: ")
     p.add_argument(
@@ -19,22 +32,7 @@ def register(sub):
     )
     p.add_argument(
         "--name",
-        help="lock name, only needed if never stored by set-owner/settings/enroll",
-    )
-    p.set_defaults(run=run)
-
-    p = sub.add_parser("settings", help="volume, mute and auto-lock (owners)")
-    p.add_argument("address")
-    add_password_argument(p)
-    p.add_argument(
-        "--volume",
-        choices=VOLUME_CHOICES,
-        help="high/medium/low/muted; a EURO only uses medium and muted",
-    )
-    p.add_argument("--auto-lock", choices=["on", "off"])
-    p.add_argument(
-        "--name",
-        help="lock name, only needed if never stored by set-owner/settings/enroll",
+        help="lock name, if not saved locally",
     )
     p.set_defaults(run=run)
 

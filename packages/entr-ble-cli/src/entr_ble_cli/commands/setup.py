@@ -12,21 +12,18 @@ logger = logging.getLogger(__name__)
 
 
 def register(sub):
-    p = sub.add_parser(
-        "set-owner",
-        help="first-time setup of an uninitialized lock (factory admin code 000000 replaced)",
-    )
+    p = sub.add_parser("set-owner", help="set up a new lock")
     p.add_argument("address")
     add_password_argument(p, "New owner password: ")
     p.add_argument(
         "--name",
         required=True,
-        help="lock name, shown in advertisements (12 bytes max)",
+        help="lock name (up to 12 bytes)",
     )
     p.add_argument(
         "--user",
         default="owner",
-        help="owner user name, also its identifier (default: owner)",
+        help="owner name (default: owner)",
     )
     p.add_argument(
         "--provider",
@@ -37,24 +34,22 @@ def register(sub):
     p.add_argument(
         "--sync-time",
         action="store_true",
-        help="also set the lock clock (NIZ firmware only)",
+        help="also set the lock clock",
     )
     p.set_defaults(run=run, setup=True)
 
     p = sub.add_parser(
         "enroll",
-        help="claim the single owner slot, revoking whichever device currently holds it",
+        help="recover owner access, replacing the current owner's key",
     )
     p.add_argument("address")
     add_password_argument(p, "Owner password: ")
     p.add_argument("--name", help="lock name, stored for later settings commands")
     p.set_defaults(run=run, setup=True)
 
-    p = sub.add_parser(
-        "activate", help="redeem a key an owner created for this computer"
-    )
+    p = sub.add_parser("activate", help="redeem a supplied key")
     p.add_argument("address")
-    p.add_argument("key_code", help="6-character key code supplied by an owner")
+    p.add_argument("key_code", help="6-character key code")
     p.set_defaults(run=run, setup=True)
 
 

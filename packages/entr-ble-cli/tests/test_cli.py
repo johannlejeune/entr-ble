@@ -1,4 +1,6 @@
+import argparse
 import logging
+import re
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -26,6 +28,32 @@ class CliTests(unittest.TestCase):
         self.assertIn("Getting started:", help_text)
         self.assertIn("entr-ble COMMAND --help", help_text)
         self.assertNotIn("{scan,", help_text)
+        headings = (
+            "Discovery and setup:",
+            "Lock control:",
+            "Status and information:",
+            "Users and keys:",
+            "Settings:",
+            "Maintenance and logs:",
+            "Home Assistant:",
+        )
+        positions = [help_text.index(heading) for heading in headings]
+        self.assertEqual(positions, sorted(positions))
+        parser = argparse.ArgumentParser()
+        sub = parser.add_subparsers()
+        for module in (
+            cli.discovery,
+            cli.setup,
+            cli.access,
+            cli.status,
+            cli.users,
+            cli.settings,
+            cli.maintenance,
+            cli.config,
+        ):
+            module.register(sub)
+        listed = re.findall(r"^    ([a-z][a-z-]+)\s{2,}\S", help_text, re.MULTILINE)
+        self.assertCountEqual(listed, sub.choices)
         for command in (
             "scan",
             "set-owner",
