@@ -10,6 +10,10 @@ dependencies = [
     "entr-ble==1.0.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/johannlejeune/entr-ble"
+Issues = "https://github.com/johannlejeune/entr-ble/issues"
+
 [project.scripts]
 entr-ble = "entr_ble_cli:main"
 

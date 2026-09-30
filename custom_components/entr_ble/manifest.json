@@ -1,11 +1,19 @@
 {
   "domain": "entr_ble",
   "name": "ENTR BLE",
-  "codeowners": ["@johannlejeune"],
+  "codeowners": [
+    "@johannlejeune"
+  ],
   "config_flow": true,
-  "dependencies": ["bluetooth"],
-  "iot_class": "assumed_state",
+  "dependencies": [
+    "bluetooth"
+  ],
+  "documentation": "https://github.com/johannlejeune/entr-ble",
   "integration_type": "device",
-  "requirements": ["entr-ble==1.0.0"],
+  "iot_class": "assumed_state",
+  "issue_tracker": "https://github.com/johannlejeune/entr-ble/issues",
+  "requirements": [
+    "entr-ble==1.0.0"
+  ],
   "version": "1.0.0"
 }

@@ -14,6 +14,10 @@ dependencies = [
     "cryptography>=48.0.1",
 ]
 
+[project.urls]
+Repository = "https://github.com/johannlejeune/entr-ble"
+Issues = "https://github.com/johannlejeune/entr-ble/issues"
+
 [tool.ruff.lint.per-file-ignores]
 "src/entr_ble/client/*.py" = ["PLR0402"]
 
