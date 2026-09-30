@@ -106,8 +106,18 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Validate integration
-        run: docker run --rm -v "$GITHUB_WORKSPACE:/github/workspace" ghcr.io/home-assistant/hassfest:2026.9.3
+        run: |
+          version=$(uv run --no-project python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          dependencies = tomllib.loads(Path("pyproject.toml").read_text())["dependency-groups"]["hacs"]
+          print(next(dependency.removeprefix("homeassistant==") for dependency in dependencies if dependency.startswith("homeassistant==")))
+          PY
+          )
+          docker run --rm -v "$GITHUB_WORKSPACE:/github/workspace" "ghcr.io/home-assistant/hassfest:$version"
 
   hacs:
     name: HACS validation
