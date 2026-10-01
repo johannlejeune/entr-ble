@@ -1,0 +1,110 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurer ENTR BLE",
+        "menu_options": {
+          "discover": "Rechercher une serrure à proximité",
+          "manual": "Saisir une adresse Bluetooth",
+          "import_credentials": "Importer des identifiants existants"
+        },
+        "menu_option_descriptions": {
+          "discover": "Rechercher une fois les serrures ENTR à proximité.",
+          "manual": "Saisissez une adresse si la serrure n’apparaît pas dans la liste.",
+          "import_credentials": "Utilisez des identifiants créés précédemment avec l’interface en ligne de commande."
+        }
+      },
+      "discover": {
+        "title": "Choisir une serrure",
+        "data": {
+          "address": "Serrure à proximité"
+        }
+      },
+      "no_devices": {
+        "title": "Aucune serrure ENTR trouvée",
+        "description": "Rapprochez-vous de la serrure, relancez la recherche ou saisissez son adresse manuellement.",
+        "menu_options": {
+          "discover": "Rechercher à nouveau",
+          "manual": "Saisir une adresse"
+        }
+      },
+      "manual": {
+        "title": "Adresse Bluetooth",
+        "data": {
+          "address": "Adresse"
+        }
+      },
+      "method": {
+        "title": "Choisir comment Home Assistant accédera à la serrure",
+        "menu_options": {
+          "owner": "Faire de Home Assistant le propriétaire",
+          "user_key": "Utiliser une clé utilisateur supplémentaire"
+        },
+        "menu_option_descriptions": {
+          "owner": "Prendre la place de propriétaire. Le propriétaire actuel perdra l’accès depuis son application mobile.",
+          "user_key": "Conserver le propriétaire mobile actuel et utiliser une clé qu’il a créée pour Home Assistant."
+        }
+      },
+      "owner": {
+        "title": "Configuration du propriétaire",
+        "menu_options": {
+          "initialize": "Initialiser une nouvelle serrure",
+          "take_over": "Remplacer le propriétaire actuel"
+        },
+        "menu_option_descriptions": {
+          "initialize": "À utiliser uniquement si la serrure n’a jamais eu de propriétaire.",
+          "take_over": "Utilisez le code administrateur du propriétaire actuel. Cela remplacera les identifiants du propriétaire dans l’application mobile."
+        }
+      },
+      "initialize": {
+        "title": "Initialiser une nouvelle serrure",
+        "description": "À utiliser uniquement si la serrure n’a pas encore été initialisée. Home Assistant en deviendra le premier propriétaire.",
+        "data": {
+          "admin_code": "Nouveau code administrateur du propriétaire",
+          "lock_name": "Nom de la serrure"
+        },
+        "data_description": {
+          "admin_code": "Choisissez un code de six caractères et conservez-le en lieu sûr."
+        }
+      },
+      "take_over": {
+        "title": "Remplacer le propriétaire actuel",
+        "description": "Home Assistant prendra l’unique place de propriétaire. Le propriétaire mobile actuel perdra l’accès une fois l’opération réussie.",
+        "data": {
+          "admin_code": "Code administrateur du propriétaire",
+          "confirm_take_over": "Je comprends que le propriétaire mobile perdra l’accès"
+        },
+        "data_description": {
+          "admin_code": "Code à six caractères du propriétaire actuel."
+        }
+      },
+      "user_key": {
+        "title": "Activer une clé utilisateur supplémentaire",
+        "description": "Créez d’abord un utilisateur pour Home Assistant avec l’application mobile ou un autre propriétaire. Saisissez ici son code de clé à six caractères. Le propriétaire mobile conserve l’accès.",
+        "data": {
+          "key_code": "Code de la clé utilisateur"
+        }
+      },
+      "import_credentials": {
+        "title": "Importer des identifiants existants",
+        "description": "Collez le JSON exporté par l’interface en ligne de commande ENTR BLE.",
+        "data": {
+          "credentials_json": "JSON des identifiants"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Cette serrure est déjà configurée.",
+      "already_in_progress": "La configuration de cette serrure est déjà en cours."
+    },
+    "error": {
+      "cannot_connect": "Impossible de se connecter à la serrure. Vérifiez la portée Bluetooth et réessayez.",
+      "confirmation_required": "Confirmez que le propriétaire mobile actuel perdra l’accès.",
+      "invalid_address": "Saisissez une adresse Bluetooth.",
+      "invalid_code": "Saisissez un code de six caractères.",
+      "invalid_credentials": "Saisissez un JSON d’identifiants valide, exporté par l’interface en ligne de commande ENTR BLE.",
+      "invalid_input": "Vérifiez le code et le nom de la serrure.",
+      "pairing_rejected": "La serrure a refusé le code ou la méthode de configuration."
+    }
+  }
+}
