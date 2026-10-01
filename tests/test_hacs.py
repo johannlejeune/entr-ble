@@ -128,6 +128,24 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
             "role": 2,
         }
         flow = config_flow.EntrConfigFlow()
+        for field in (
+            "app_id",
+            "user_id",
+            "ble_ekey",
+            "kdf_id",
+            "aes_key",
+            "role",
+        ):
+            with self.subTest(missing_field=field):
+                result = await flow.async_step_import_credentials(
+                    {
+                        "credentials_json": json.dumps(
+                            credentials | {CONF_ADDRESS: "AA:BB"} | {field: None}
+                        )
+                    }
+                )
+                self.assertEqual(result.get("errors"), {"base": "invalid_credentials"})
+
         for field, value in (
             ("app_id", 123),
             ("aes_key", [0] * 16),

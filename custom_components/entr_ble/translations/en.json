@@ -87,17 +87,9 @@
       },
       "import_credentials": {
         "title": "Import existing credentials",
+        "description": "Paste the JSON exported by the ENTR BLE CLI.",
         "data": {
-          "address": "Bluetooth address",
-          "credentials_json": "Credentials JSON",
-          "app_id": "App ID",
-          "user_id": "User ID",
-          "ble_ekey": "BLE eKey",
-          "kdf_id": "KDF ID",
-          "aes_key": "AES key",
-          "comm_version": "Communication version",
-          "role": "Role",
-          "lock_name": "Lock name"
+          "credentials_json": "Credentials JSON"
         }
       }
     },
@@ -110,7 +102,7 @@
       "confirmation_required": "Confirm that the current mobile owner will lose access.",
       "invalid_address": "Enter a Bluetooth address.",
       "invalid_code": "Enter a six-character code.",
-      "invalid_credentials": "Enter valid credentials JSON or all credential fields.",
+      "invalid_credentials": "Enter valid credentials JSON exported by the ENTR BLE CLI.",
       "invalid_input": "Check the code and lock name.",
       "pairing_rejected": "The lock rejected the code or setup method."
     }
