@@ -1,4 +1,5 @@
 import json
+from typing import cast
 
 import voluptuous as vol
 from bleak.exc import BleakError
@@ -213,34 +214,22 @@ class EntrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 def _credentials(user_input):
-    data = dict(user_input)
-    address = data.get(CONF_ADDRESS)
+    credentials_json = user_input["credentials_json"].strip()
+    parsed = json.loads(credentials_json)
+    if not isinstance(parsed, dict):
+        raise TypeError
+    if CONF_ADDRESS not in parsed:
+        if len(parsed) != 1:
+            raise ValueError
+        address, credentials = next(iter(parsed.items()))
+        if not isinstance(credentials, dict):
+            raise ValueError
+        parsed = credentials | {CONF_ADDRESS: address}
+    address = parsed.get(CONF_ADDRESS)
     if not isinstance(address, str) or not address.strip():
         raise ValueError
-    data[CONF_ADDRESS] = address.strip().upper()
-    credentials_json = data.pop("credentials_json", "").strip()
-    if credentials_json:
-        parsed = json.loads(credentials_json)
-        if not isinstance(parsed, dict):
-            raise ValueError
-        if CONF_ADDRESS not in parsed:
-            parsed = next(
-                (
-                    value
-                    for address, value in parsed.items()
-                    if isinstance(address, str)
-                    and address.lower() == data[CONF_ADDRESS].lower()
-                ),
-                None,
-            )
-        if not isinstance(parsed, dict):
-            raise ValueError
-        if CONF_ADDRESS in parsed and (
-            not isinstance(parsed[CONF_ADDRESS], str)
-            or parsed[CONF_ADDRESS].lower() != data[CONF_ADDRESS].lower()
-        ):
-            raise ValueError
-        data.update({field: parsed[field] for field in _FIELDS if field in parsed})
+    data = {CONF_ADDRESS: address.strip().upper()}
+    data.update({field: parsed[field] for field in _FIELDS if field in parsed})
     if any(
         field not in data or data[field] in (None, "") for field in _REQUIRED_FIELDS
     ):
@@ -254,7 +243,8 @@ def _credentials(user_input):
             raise ValueError
         data[field] = decoded.hex()
     for field in (CONF_KDF_ID, CONF_ROLE):
-        if type(data[field]) is not int or not 0 <= data[field] <= 255:
+        value = data[field]
+        if type(value) is not int or not 0 <= cast(int, value) <= 255:
             raise ValueError
     for field in (CONF_COMM_VERSION, CONF_LOCK_NAME):
         if data.get(field) is not None and not isinstance(data[field], str):
@@ -269,15 +259,6 @@ def _credentials(user_input):
 def _schema():
     return vol.Schema(
         {
-            vol.Required(CONF_ADDRESS): str,
-            vol.Optional("credentials_json"): str,
-            vol.Optional(CONF_APP_ID): str,
-            vol.Optional(CONF_USER_ID): str,
-            vol.Optional(CONF_BLE_EKEY): str,
-            vol.Optional(CONF_KDF_ID): int,
-            vol.Optional(CONF_AES_KEY): str,
-            vol.Optional(CONF_COMM_VERSION): str,
-            vol.Optional(CONF_ROLE, default=2): int,
-            vol.Optional(CONF_LOCK_NAME): str,
+            vol.Required("credentials_json"): str,
         }
     )

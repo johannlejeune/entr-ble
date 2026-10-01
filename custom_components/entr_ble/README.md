@@ -50,7 +50,7 @@ On the machine holding the saved key:
 entr-ble-cli export-homeassistant ADDRESS
 ```
 
-In the integration's initial setup menu, choose **Import existing credentials**, enter the same Bluetooth address, and paste the output into **Credentials JSON**.
+In the integration's initial setup menu, choose **Import existing credentials** and paste the complete output into **Credentials JSON**. The Bluetooth address is read from the exported JSON.
 
 Export does not connect to the lock or alter credentials. The integration stores its own copy. Both the exported JSON and Home Assistant's stored credentials contain access keys; keep them private and out of version control.
 
