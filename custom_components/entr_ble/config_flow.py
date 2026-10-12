@@ -87,14 +87,17 @@ class EntrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if lock is not None:
                 choices[lock.address] = f"{lock.name} ({lock.address})"
         if not choices:
-            return self.async_show_menu(
-                step_id="no_devices", menu_options=["discover", "manual"]
-            )
+            return await self.async_step_no_devices()
         return self.async_show_form(
             step_id="discover",
             data_schema=probatio.Schema(
                 {probatio.Required(CONF_ADDRESS): probatio.In(choices)}
             ),
+        )
+
+    async def async_step_no_devices(self, user_input=None):
+        return self.async_show_menu(
+            step_id="no_devices", menu_options=["discover", "manual"]
         )
 
     async def async_step_manual(self, user_input=None):
