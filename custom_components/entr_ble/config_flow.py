@@ -1,7 +1,7 @@
 import json
 from typing import cast
 
-import voluptuous as vol
+import probatio
 from bleak.exc import BleakError
 from homeassistant import config_entries
 from homeassistant.components import bluetooth
@@ -80,7 +80,9 @@ class EntrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
         return self.async_show_form(
             step_id="discover",
-            data_schema=vol.Schema({vol.Required(CONF_ADDRESS): vol.In(choices)}),
+            data_schema=probatio.Schema(
+                {probatio.Required(CONF_ADDRESS): probatio.In(choices)}
+            ),
         )
 
     async def async_step_manual(self, user_input=None):
@@ -90,7 +92,7 @@ class EntrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self._async_select_address(address)
         return self.async_show_form(
             step_id="manual",
-            data_schema=vol.Schema({vol.Required(CONF_ADDRESS): str}),
+            data_schema=probatio.Schema({probatio.Required(CONF_ADDRESS): str}),
             errors={"base": "invalid_address"} if user_input is not None else {},
         )
 
@@ -118,10 +120,10 @@ class EntrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = error
         return self.async_show_form(
             step_id="initialize",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Required("admin_code"): _PASSWORD,
-                    vol.Required(CONF_LOCK_NAME): str,
+                    probatio.Required("admin_code"): _PASSWORD,
+                    probatio.Required(CONF_LOCK_NAME): str,
                 }
             ),
             errors=errors,
@@ -144,10 +146,10 @@ class EntrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = error
         return self.async_show_form(
             step_id="take_over",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Required("admin_code"): _PASSWORD,
-                    vol.Required("confirm_take_over", default=False): bool,
+                    probatio.Required("admin_code"): _PASSWORD,
+                    probatio.Required("confirm_take_over", default=False): bool,
                 }
             ),
             errors=errors,
@@ -168,7 +170,7 @@ class EntrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = error
         return self.async_show_form(
             step_id="user_key",
-            data_schema=vol.Schema({vol.Required("key_code"): _PASSWORD}),
+            data_schema=probatio.Schema({probatio.Required("key_code"): _PASSWORD}),
             errors=errors,
         )
 
@@ -257,8 +259,8 @@ def _credentials(user_input):
 
 
 def _schema():
-    return vol.Schema(
+    return probatio.Schema(
         {
-            vol.Required("credentials_json"): str,
+            probatio.Required("credentials_json"): str,
         }
     )
