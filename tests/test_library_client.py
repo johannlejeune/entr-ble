@@ -245,6 +245,10 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         ):
             await self.client.get_device_config_when_idle(attempts=2)
         self.assertEqual(self.client.get_device_config.await_count, 2)
+        self.client.get_device_config = AsyncMock(return_value=config)
+        with patch("entr_ble.client.status.asyncio.sleep", AsyncMock()):
+            await self.client.get_device_config_when_idle(attempts=0)
+        self.assertEqual(self.client.get_device_config.await_count, 1)
 
     async def test_truncated_success_is_not_confirmation(self):
         for command, payload in ((101, b""), (101, b"e"), (120, b"e")):

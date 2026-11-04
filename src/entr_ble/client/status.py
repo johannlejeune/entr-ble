@@ -117,13 +117,15 @@ class Status(TransportClient):
         Use after LOCK/UNLOCK: the motor keeps running after the command is
         confirmed, and the lock rejects status reads with LockBusy (23) meanwhile.
         Waits ``delay`` seconds before each attempt; other errors propagate
-        immediately and the last LockBusy error propagates after ``attempts`` tries.
+        immediately and the last LockBusy error propagates after ``attempts`` tries,
+        with at least one try.
         """
-        for attempt in range(1, attempts + 1):
+        for _ in range(attempts - 1):
             await asyncio.sleep(delay)
             try:
                 return await self.get_device_config()
             except EntrLockError as exc:
-                if exc.detail != LOCK_BUSY or attempt == attempts:
+                if exc.detail != LOCK_BUSY:
                     raise
-        raise AssertionError("unreachable")
+        await asyncio.sleep(delay)
+        return await self.get_device_config()
