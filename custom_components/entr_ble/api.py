@@ -144,7 +144,7 @@ class EntrDevice:
                     self.credentials[CONF_ROLE],
                     bytes.fromhex(self.credentials[CONF_AES_KEY]),
                 )
-                self._apply_status(client.status)
+                self._apply_status(client.status, update_lock=command is None)
                 if command is not None:
                     await getattr(client, command)(
                         bytes.fromhex(self.credentials[CONF_USER_ID]),
@@ -188,14 +188,15 @@ class EntrDevice:
             return
         self._apply_status(status)
 
-    def _apply_status(self, status):
+    def _apply_status(self, status, update_lock=True):
         if status is None:
             return
         battery = status.get("battery_percentage")
         if battery is None and self.status is not None:
             battery = self.status.get("battery_percentage")
         self.status = {**status, "battery_percentage": battery}
-        self.locked = status["locked"]
+        if update_lock:
+            self.locked = status["locked"]
 
     def _record_failure(self, err):
         if self.last_update_success:

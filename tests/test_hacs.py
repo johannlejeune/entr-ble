@@ -556,6 +556,19 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(client.calls, ["connect", "disconnect"])
         listener.assert_called_once()
 
+    async def test_rejected_command_ignores_session_lock_state(self):
+        device = api.EntrDevice(fake_hass(), CREDENTIALS)
+        device.locked = True
+        client = FakeClient(object(), 15)
+        with (
+            fake_connection(Mock(return_value=client)),
+            patch.object(client, "unlock", side_effect=api.EntrProtocolError("no")),
+            self.assertLogs(api._LOGGER, "WARNING"),
+            self.assertRaises(HomeAssistantError),
+        ):
+            await device.async_unlock()
+        self.assertTrue(device.locked)
+
     async def test_parallel_sessions_wait_and_cancelled_session_disconnects(self):
         device = api.EntrDevice(fake_hass(), CREDENTIALS)
         connected = asyncio.Event()
