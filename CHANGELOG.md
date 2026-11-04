@@ -2,6 +2,14 @@
 
 The Python library, CLI, and Home Assistant integration share one version and release together. Release Please maintains this file; each release's notes also appear in its GitHub release.
 
+## [1.2.0](https://github.com/johannlejeune/entr-ble/compare/v1.1.0...v1.2.0) (2026-11-04)
+
+
+### Features
+
+* **hacs:** declare manifest category ([7b1c823](https://github.com/johannlejeune/entr-ble/commit/7b1c8234d5fb9d8f174c13d69ff9989e2af542d0)), closes [#14](https://github.com/johannlejeune/entr-ble/issues/14)
+* reliable connections, state read-back, availability and new sensors ([#19](https://github.com/johannlejeune/entr-ble/issues/19)) ([8da562b](https://github.com/johannlejeune/entr-ble/commit/8da562b56463826960364151fd3c340fcdf1f2f2))
+
 ## [1.1.0](https://github.com/johannlejeune/entr-ble/compare/v1.0.0...v1.1.0) (2026-10-22)
 
 
