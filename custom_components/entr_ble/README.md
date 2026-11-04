@@ -78,7 +78,7 @@ target:
 
 After a restart, the integration restores the last displayed values and performs one background BLE read. Every connection is closed after use.
 
-- **Polling.** The lock is read in the background every 10 minutes by default. Change the interval under **Settings → Devices & services → ENTR BLE → Configure**; `0` disables polling. Each read is a short Bluetooth connection, so shorter intervals use more lock battery.
+- **Polling.** Off by default: the lock is read at startup, after each command and when it comes back in range. To also read it in the background, set an interval in minutes under **Settings → Devices & services → ENTR BLE → Configure**. Each read is a short Bluetooth connection, so shorter intervals use more lock battery.
 - **Commands.** After Lock or Unlock is accepted, the lock entity shows the commanded state immediately, then the lock's own report once the motor has stopped (for example, a bolt that could not extend shows as unlocked).
 - **Auto-lock.** When auto-lock is enabled, the lock re-locks on its own after an unlock. The integration reads it again 30 s, 1, 2 and 4 minutes later and stops as soon as it reports locked.
 - **Availability.** Entities become unavailable when no Bluetooth adapter or proxy has seen the lock advertise for a while, or when the lock cannot be found for a command. They come back, with a fresh read, when it advertises again. A failed read keeps the last values and logs one warning until the lock responds again.
