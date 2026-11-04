@@ -59,9 +59,8 @@ from custom_components.entr_ble.sensor import EntrBattery
 class FakeClient:
     instances: ClassVar[list[FakeClient]] = []
 
-    def __init__(self, device, timeout):
+    def __init__(self, device):
         self.device = device
-        self.timeout = timeout
         self.comm_version = "1.29r3"
         self.session = SimpleNamespace(key=b"\x11" * 16)
         self.status = {"battery_percentage": 73, "locked": False}
@@ -492,8 +491,8 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_read_back_reports_what_the_lock_actually_did(self):
-        def jammed(device, timeout):
-            client = FakeClient(device, timeout)
+        def jammed(device):
+            client = FakeClient(device)
             client.read_back = {"locked": False, "battery_percentage": 70}
             return client
 
@@ -505,8 +504,8 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(device.status["battery_percentage"], 70)
 
     async def test_failed_read_back_keeps_assumed_state(self):
-        def busy(device, timeout):
-            client = FakeClient(device, timeout)
+        def busy(device):
+            client = FakeClient(device)
             client.read_back = api.EntrProtocolError("LockBusy")
             return client
 
@@ -564,7 +563,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         device.locked = False
         listener = Mock()
         device.add_listener(listener)
-        client = FakeClient(object(), 15)
+        client = FakeClient(object())
         with (
             fake_connection(Mock(return_value=client)),
             patch.object(client, "kdf_resync", side_effect=BleakError("Lost link")),
@@ -580,7 +579,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
     async def test_rejected_command_ignores_session_lock_state(self):
         device = fake_device()
         device.locked = True
-        client = FakeClient(object(), 15)
+        client = FakeClient(object())
         with (
             fake_connection(Mock(return_value=client)),
             patch.object(client, "unlock", side_effect=api.EntrProtocolError("no")),
@@ -594,7 +593,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         device = fake_device()
         connected = asyncio.Event()
         release = asyncio.Event()
-        client = FakeClient(object(), 15)
+        client = FakeClient(object())
 
         async def connect(_bleak_client=None):
             connected.set()
@@ -631,8 +630,8 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
             refresh.assert_awaited_once()
 
     async def test_unlock_with_auto_lock_follows_up_until_locked(self):
-        def auto_lock(device, timeout):
-            client = FakeClient(device, timeout)
+        def auto_lock(device):
+            client = FakeClient(device)
             client.status = {**client.status, "auto_lock": True}
             return client
 

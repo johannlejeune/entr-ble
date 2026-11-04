@@ -7,7 +7,6 @@ from homeassistant.components import bluetooth
 from entr_ble import EntrLockClient
 
 CONNECT_ATTEMPTS = 3
-CLIENT_TIMEOUT = 15
 
 
 class LockNotFoundError(BleakError):
@@ -27,7 +26,7 @@ async def async_connect(hass, address):
     if ble_device is None:
         raise LockNotFoundError(f"ENTR lock {address} is not in Bluetooth range")
 
-    client = EntrLockClient(ble_device, timeout=CLIENT_TIMEOUT)
+    client = EntrLockClient(ble_device)
     bleak_client = await establish_connection(
         BleakClientWithServiceCache,
         ble_device,
