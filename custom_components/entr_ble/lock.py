@@ -55,9 +55,6 @@ class EntrLock(EntrEntity, RestoreEntity, LockEntity):  # pyright: ignore[report
     def _set_state(self):
         if self._device.locked is not None:
             self._attr_is_locked = self._device.locked
-            # The lock answered; any in-flight transition is over.
-            self._attr_is_locking = False
-            self._attr_is_unlocking = False
 
 
 async def async_setup_entry(_hass, entry, async_add_entities):

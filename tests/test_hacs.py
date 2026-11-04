@@ -251,6 +251,20 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         await lock.async_lock()
         device.async_lock.assert_awaited_once()
 
+    async def test_lock_shows_locking_until_the_command_finishes(self):
+        device = SimpleNamespace(locked=False, available=True)
+        entry = SimpleNamespace(data={CONF_ADDRESS: "AA:BB"}, runtime_data=device)
+        lock = EntrLock(entry)
+
+        async def lock_after_unrelated_read():
+            lock._update_state()
+            self.assertTrue(lock.is_locking)
+
+        device.async_lock = lock_after_unrelated_read
+        with patch.object(lock, "async_write_ha_state"):
+            await lock.async_lock()
+        self.assertFalse(lock.is_locking)
+
     async def test_lock_restores_last_command_and_force_buttons_ignore_displayed_state(
         self,
     ):
