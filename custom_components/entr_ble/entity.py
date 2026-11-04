@@ -28,7 +28,6 @@ class EntrEntity(Entity):
         self._device = entry.runtime_data
         self._attr_unique_id = f"{entry.data[CONF_ADDRESS]}_{key}"
         self._attr_device_info = device_info(entry)
-        self._attr_available = getattr(self._device, "available", True)
 
     @override
     async def async_added_to_hass(self):

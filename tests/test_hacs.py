@@ -284,6 +284,10 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
             listeners[0]()
             self.assertFalse(lock.available)
             self.assertFalse(lock.is_locked)
+            button = EntrCommandButton(entry, "lock")
+            with patch.object(button, "async_write_ha_state"):
+                button._update_state()
+            self.assertTrue(button.available)
             device.available = True
             self.assertTrue(lock.supported_features & LockEntityFeature.OPEN)
             await lock.async_open()

@@ -15,6 +15,10 @@ class EntrCommandButton(EntrEntity, ButtonEntity):  # pyright: ignore[reportInco
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @override
+    def _refresh_attributes(self):
+        pass
+
+    @override
     async def async_press(self):
         if self._command == "lock":
             await self._device.async_lock()
