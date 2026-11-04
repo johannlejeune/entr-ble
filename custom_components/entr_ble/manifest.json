@@ -1,6 +1,7 @@
 {
   "domain": "entr_ble",
   "name": "ENTR BLE",
+  "categories": ["security_safety.locks_access"],
   "codeowners": [
     "@johannlejeune"
   ],
