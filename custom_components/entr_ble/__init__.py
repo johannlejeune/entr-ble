@@ -11,9 +11,6 @@ async def async_setup_entry(hass, entry):
     minutes = int(entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
     device.async_start(timedelta(minutes=minutes) if minutes > 0 else None)
     entry.async_on_unload(device.async_stop)
-    entry.async_create_background_task(
-        hass, device.async_refresh(), "entr_ble_initial_status"
-    )
     return True
 
 

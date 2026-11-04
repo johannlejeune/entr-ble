@@ -515,8 +515,10 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
             [["connect", "kdf", "disconnect"], ["connect", "kdf", "disconnect"]],
         )
 
-    async def test_out_of_range_lock_becomes_unavailable_and_keeps_values(self):
-        device = api.EntrDevice(fake_hass(), CREDENTIALS)
+    async def test_out_of_range_lock_keeps_values_and_refreshes_when_seen(self):
+        hass = fake_hass()
+        device = api.EntrDevice(hass, CREDENTIALS)
+        device._refresh_on_advertisement = False
         device.status = dict(decode_status(0, 64, None))
         with (
             patch.object(bluetooth, "async_ble_device_from_address", return_value=None),
@@ -530,13 +532,14 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         assert device.status is not None
         self.assertEqual(device.status["battery_percentage"], 64)
         self.assertIsNone(device.locked)
-        self.assertFalse(device.available)
+        self.assertTrue(device.available)
         self.assertFalse(device.last_update_success)
 
         with fake_connection(), self.assertLogs(api._LOGGER, "INFO") as logs:
-            await device.async_sync()
-        self.assertIn("responding again", logs.output[0])
-        self.assertTrue(device.available)
+            device._async_advertisement(None, None)
+            await cast(SimpleNamespace, hass).tasks[0]
+        self.assertIn("responding again", logs.output[-1])
+        self.assertTrue(device.last_update_success)
 
     async def test_failed_session_disconnects_without_changing_lock_state(self):
         device = api.EntrDevice(fake_hass(), CREDENTIALS)
@@ -665,17 +668,21 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(register.call_args.args[2]["address"], "AA:BB")
         self.assertEqual(interval.call_args.args[2], timedelta(minutes=10))
 
-        device._async_advertisement(None, None)
-        updates.assert_not_called()
-        device._async_unavailable(None)
-        self.assertFalse(device.available)
-        device._async_unavailable(None)
-        self.assertEqual(updates.call_count, 1)
+        tasks = cast(SimpleNamespace, hass).tasks
         with patch.object(device, "async_refresh", AsyncMock()) as refresh:
             device._async_advertisement(None, None)
-            self.assertTrue(device.available)
-            await cast(SimpleNamespace, hass).tasks[0]
+            device._async_advertisement(None, None)
+            self.assertEqual(len(tasks), 1)
+            await tasks[0]
             refresh.assert_awaited_once()
+            device._async_unavailable(None)
+            self.assertFalse(device.available)
+            device._async_unavailable(None)
+            device._async_advertisement(None, None)
+            self.assertTrue(device.available)
+            await tasks[1]
+            self.assertEqual(refresh.await_count, 2)
+        self.assertEqual(updates.call_count, 3)
 
         device.async_stop()
         for unsubscribe in unsubscribers:

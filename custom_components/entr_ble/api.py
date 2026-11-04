@@ -41,6 +41,7 @@ class EntrDevice:
         self.locked = None
         self.available = True
         self.last_update_success = True
+        self._refresh_on_advertisement = True
         self._listeners = []
         self._lock = asyncio.Lock()
         self._unsubscribers = []
@@ -115,13 +116,14 @@ class EntrDevice:
 
     @callback
     def _async_advertisement(self, _service_info, _change):
-        if self.available:
+        if self.available and not self._refresh_on_advertisement:
             return
         self.available = True
-        _LOGGER.debug("ENTR lock %s is advertising again", self.address)
+        self._refresh_on_advertisement = False
+        _LOGGER.debug("ENTR lock %s is advertising", self.address)
         self._notify_listeners()
         self.hass.async_create_background_task(
-            self.async_refresh(), f"ENTR {self.address} refresh after reappearing"
+            self.async_refresh(), f"ENTR {self.address} refresh on advertisement"
         )
 
     @callback
@@ -157,7 +159,7 @@ class EntrDevice:
                     self._notify_listeners()
                     await self._async_read_back(client)
             except connection.LockNotFoundError as err:
-                self.available = False
+                self._refresh_on_advertisement = True
                 self._record_failure(err)
                 self._notify_listeners()
                 raise HomeAssistantError(str(err)) from err
