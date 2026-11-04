@@ -7,8 +7,22 @@ The Python library, CLI, and Home Assistant integration share one version and re
 
 ### Features
 
-* **hacs:** declare manifest category ([7b1c823](https://github.com/johannlejeune/entr-ble/commit/7b1c8234d5fb9d8f174c13d69ff9989e2af542d0)), closes [#14](https://github.com/johannlejeune/entr-ble/issues/14)
-* reliable connections, state read-back, availability and new sensors ([#19](https://github.com/johannlejeune/entr-ble/issues/19)) ([8da562b](https://github.com/johannlejeune/entr-ble/commit/8da562b56463826960364151fd3c340fcdf1f2f2))
+* **lib:** fail fast on disconnect, accept an already connected Bleak client, return `OP_STATUS` from lock and unlock, and read the lock state once the motor is idle ([#19](https://github.com/johannlejeune/entr-ble/issues/19)) ([8da562b](https://github.com/johannlejeune/entr-ble/commit/8da562b56463826960364151fd3c340fcdf1f2f2))
+* **hacs:** connect through Home Assistant's retrying Bluetooth connector, confirm the lock state after each command, and follow up after auto-lock unlocks ([#19](https://github.com/johannlejeune/entr-ble/issues/19)) ([8da562b](https://github.com/johannlejeune/entr-ble/commit/8da562b56463826960364151fd3c340fcdf1f2f2))
+* **hacs:** mark entities unavailable while Home Assistant no longer sees the lock over Bluetooth ([#19](https://github.com/johannlejeune/entr-ble/issues/19)) ([8da562b](https://github.com/johannlejeune/entr-ble/commit/8da562b56463826960364151fd3c340fcdf1f2f2))
+* **hacs:** add door, charging and auto-lock sensors ([#19](https://github.com/johannlejeune/entr-ble/issues/19)) ([8da562b](https://github.com/johannlejeune/entr-ble/commit/8da562b56463826960364151fd3c340fcdf1f2f2))
+* **hacs:** add optional status polling, off by default ([#19](https://github.com/johannlejeune/entr-ble/issues/19)) ([8da562b](https://github.com/johannlejeune/entr-ble/commit/8da562b56463826960364151fd3c340fcdf1f2f2))
+* **hacs:** declare the `security_safety.locks_access` manifest category ([7b1c823](https://github.com/johannlejeune/entr-ble/commit/7b1c8234d5fb9d8f174c13d69ff9989e2af542d0)), closes [#14](https://github.com/johannlejeune/entr-ble/issues/14)
+
+
+### Bug Fixes
+
+* **hacs:** fix the config flow error when discovery finds no locks ([#19](https://github.com/johannlejeune/entr-ble/issues/19)) ([8da562b](https://github.com/johannlejeune/entr-ble/commit/8da562b56463826960364151fd3c340fcdf1f2f2))
+
+
+### Thanks
+
+* [Martin Kleine](https://github.com/datenzar) for the connection, state and sensor work in [#19](https://github.com/johannlejeune/entr-ble/issues/19), brought in from the [datenzar/entr-ble fork](https://github.com/datenzar/entr-ble/tree/datenzar-release)
 
 ## [1.1.0](https://github.com/johannlejeune/entr-ble/compare/v1.0.0...v1.1.0) (2026-10-22)
 
