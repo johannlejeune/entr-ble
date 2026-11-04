@@ -5,7 +5,7 @@ from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, PLATFORMS
 
 
 async def async_setup_entry(hass, entry):
-    device = EntrDevice(hass, entry.data)
+    device = EntrDevice(hass, entry)
     entry.runtime_data = device
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     minutes = int(entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))

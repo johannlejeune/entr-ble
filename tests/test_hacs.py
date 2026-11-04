@@ -146,13 +146,14 @@ def fake_connection(client_factory: Callable[..., FakeClient] = FakeClient):
         yield establish
 
 
-def fake_hass():
+def fake_device():
     tasks = []
-    hass = SimpleNamespace(
+    entry = SimpleNamespace(
+        data=CREDENTIALS,
         tasks=tasks,
-        async_create_background_task=lambda task, _name: tasks.append(task),
+        async_create_background_task=lambda _hass, task, _name: tasks.append(task),
     )
-    return cast(HomeAssistant, hass)
+    return api.EntrDevice(cast(HomeAssistant, SimpleNamespace()), entry)
 
 
 class HacsTests(unittest.IsolatedAsyncioTestCase):
@@ -457,7 +458,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_lock_action_reads_back_state_and_keeps_session_battery(self):
         FakeClient.instances.clear()
-        device = api.EntrDevice(fake_hass(), CREDENTIALS)
+        device = fake_device()
         updates = []
         device.add_listener(lambda: updates.append(device.locked))
         with fake_connection() as establish:
@@ -482,7 +483,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
             client.read_back = {"locked": False, "battery_percentage": 70}
             return client
 
-        device = api.EntrDevice(fake_hass(), CREDENTIALS)
+        device = fake_device()
         with fake_connection(jammed):
             await device.async_lock()
         self.assertFalse(device.locked)
@@ -495,7 +496,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
             client.read_back = api.EntrProtocolError("LockBusy")
             return client
 
-        device = api.EntrDevice(fake_hass(), CREDENTIALS)
+        device = fake_device()
         with fake_connection(busy):
             await device.async_lock()
         self.assertTrue(device.locked)
@@ -503,7 +504,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_startup_read_and_sync_use_reported_state(self):
         FakeClient.instances.clear()
-        device = api.EntrDevice(fake_hass(), CREDENTIALS)
+        device = fake_device()
         updates = []
         device.add_listener(lambda: updates.append(device.status))
         with fake_connection():
@@ -520,8 +521,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_out_of_range_lock_keeps_values_and_refreshes_when_seen(self):
-        hass = fake_hass()
-        device = api.EntrDevice(hass, CREDENTIALS)
+        device = fake_device()
         device._refresh_on_advertisement = False
         device.status = dict(decode_status(0, 64, None))
         with (
@@ -541,12 +541,12 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
 
         with fake_connection(), self.assertLogs(api._LOGGER, "INFO") as logs:
             device._async_advertisement(None, None)
-            await cast(SimpleNamespace, hass).tasks[0]
+            await device.entry.tasks[0]
         self.assertIn("responding again", logs.output[-1])
         self.assertTrue(device.last_update_success)
 
     async def test_failed_session_disconnects_without_changing_lock_state(self):
-        device = api.EntrDevice(fake_hass(), CREDENTIALS)
+        device = fake_device()
         device.locked = False
         listener = Mock()
         device.add_listener(listener)
@@ -564,7 +564,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         listener.assert_called_once()
 
     async def test_rejected_command_ignores_session_lock_state(self):
-        device = api.EntrDevice(fake_hass(), CREDENTIALS)
+        device = fake_device()
         device.locked = True
         client = FakeClient(object(), 15)
         with (
@@ -577,7 +577,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(device.locked)
 
     async def test_parallel_sessions_wait_and_cancelled_session_disconnects(self):
-        device = api.EntrDevice(fake_hass(), CREDENTIALS)
+        device = fake_device()
         connected = asyncio.Event()
         release = asyncio.Event()
         client = FakeClient(object(), 15)
@@ -607,12 +607,13 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(client.calls, ["kdf", "disconnect"])
 
     async def test_poll_is_skipped_while_a_session_is_running(self):
-        device = api.EntrDevice(fake_hass(), CREDENTIALS)
+        device = fake_device()
         with patch.object(device, "async_refresh", AsyncMock()) as refresh:
             async with device._lock:
-                await device._async_poll()
-            refresh.assert_not_awaited()
-            await device._async_poll()
+                device._async_poll()
+            self.assertEqual(device.entry.tasks, [])
+            device._async_poll()
+            await device.entry.tasks[0]
             refresh.assert_awaited_once()
 
     async def test_unlock_with_auto_lock_follows_up_until_locked(self):
@@ -621,7 +622,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
             client.status = {**client.status, "auto_lock": True}
             return client
 
-        device = api.EntrDevice(fake_hass(), CREDENTIALS)
+        device = fake_device()
         cancel = Mock()
         with (
             fake_connection(auto_lock),
@@ -632,18 +633,20 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(later.call_args.args[1], api.AUTO_LOCK_FOLLOW_UPS[0])
 
             # Still unlocked at the first follow-up: schedule the next one.
-            await later.call_args.args[2](None)
+            later.call_args.args[2](None)
+            await device.entry.tasks[-1]
             self.assertEqual(later.call_count, 2)
             self.assertEqual(later.call_args.args[1], api.AUTO_LOCK_FOLLOW_UPS[1])
 
             # A manual lock cancels the pending follow-up and stops the chain.
             await device.async_lock()
             cancel.assert_called_once()
-            await later.call_args.args[2](None)
+            later.call_args.args[2](None)
+            await device.entry.tasks[-1]
             self.assertEqual(later.call_count, 2)
 
     async def test_unlock_without_auto_lock_does_not_follow_up(self):
-        device = api.EntrDevice(fake_hass(), CREDENTIALS)
+        device = fake_device()
         with (
             fake_connection(),
             patch.object(api, "async_call_later") as later,
@@ -652,8 +655,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         later.assert_not_called()
 
     async def test_presence_tracking_and_polling_subscriptions(self):
-        hass = fake_hass()
-        device = api.EntrDevice(hass, CREDENTIALS)
+        device = fake_device()
         unsubscribers = [Mock(), Mock(), Mock()]
         updates = Mock()
         device.add_listener(updates)
@@ -672,7 +674,7 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(register.call_args.args[2]["address"], "AA:BB")
         self.assertEqual(interval.call_args.args[2], timedelta(minutes=10))
 
-        tasks = cast(SimpleNamespace, hass).tasks
+        tasks = device.entry.tasks
         with patch.object(device, "async_refresh", AsyncMock()) as refresh:
             device._async_advertisement(None, None)
             device._async_advertisement(None, None)

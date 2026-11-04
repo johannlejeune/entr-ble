@@ -34,9 +34,10 @@ _COMMUNICATION_ERRORS = (BleakError, EntrProtocolError, OSError, TimeoutError)
 class EntrDevice:
     """One ENTR lock: short BLE sessions per action, cached state, and listeners."""
 
-    def __init__(self, hass, credentials):
+    def __init__(self, hass, entry):
         self.hass = hass
-        self.credentials = credentials
+        self.entry = entry
+        self.credentials = entry.data
         self.status = None
         self.locked = None
         self.available = True
@@ -109,10 +110,10 @@ class EntrDevice:
         with suppress(HomeAssistantError):
             await self._async_execute(None)
 
-    async def _async_poll(self, _now=None):
-        if self._lock.locked():
-            return
-        await self.async_refresh()
+    @callback
+    def _async_poll(self, _now=None):
+        if not self._lock.locked():
+            self._spawn(self.async_refresh(), "status poll")
 
     @callback
     def _async_advertisement(self, _service_info, _change):
@@ -122,9 +123,7 @@ class EntrDevice:
         self._refresh_on_advertisement = False
         _LOGGER.debug("ENTR lock %s is advertising", self.address)
         self._notify_listeners()
-        self.hass.async_create_background_task(
-            self.async_refresh(), f"ENTR {self.address} refresh on advertisement"
-        )
+        self._spawn(self.async_refresh(), "refresh on advertisement")
 
     @callback
     def _async_unavailable(self, _service_info):
@@ -220,13 +219,17 @@ class EntrDevice:
         ):
             return
 
-        async def follow_up(_now):
-            self._cancel_follow_up = None
+        async def follow_up():
             await self.async_refresh()
             self._schedule_follow_up(index + 1, generation)
 
+        @callback
+        def start_follow_up(_now):
+            self._cancel_follow_up = None
+            self._spawn(follow_up(), "auto-lock follow-up")
+
         self._cancel_follow_up = async_call_later(
-            self.hass, AUTO_LOCK_FOLLOW_UPS[index], follow_up
+            self.hass, AUTO_LOCK_FOLLOW_UPS[index], start_follow_up
         )
 
     def _stop_follow_up(self):
@@ -234,6 +237,11 @@ class EntrDevice:
         if self._cancel_follow_up is not None:
             self._cancel_follow_up()
             self._cancel_follow_up = None
+
+    def _spawn(self, coroutine, name):
+        self.entry.async_create_background_task(
+            self.hass, coroutine, f"ENTR {self.address} {name}"
+        )
 
     def _notify_listeners(self):
         for listener in list(self._listeners):
