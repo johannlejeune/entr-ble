@@ -39,16 +39,12 @@ class EntrLock(EntrEntity, RestoreEntity, LockEntity):  # pyright: ignore[report
     async def _async_operate(self, operation, locking):
         self._attr_is_locking = locking
         self._attr_is_unlocking = not locking
-        self._write_state_if_added()
+        self.async_write_ha_state()
         try:
             await operation()
         finally:
             self._attr_is_locking = False
             self._attr_is_unlocking = False
-            self._write_state_if_added()
-
-    def _write_state_if_added(self):
-        if self.hass is not None:
             self.async_write_ha_state()
 
     @override

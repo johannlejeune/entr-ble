@@ -247,7 +247,8 @@ class HacsTests(unittest.IsolatedAsyncioTestCase):
         entry = SimpleNamespace(data={CONF_ADDRESS: "AA:BB"}, runtime_data=device)
         lock = EntrLock(entry)
         self.assertTrue(lock.available)
-        await lock.async_lock()
+        with patch.object(lock, "async_write_ha_state"):
+            await lock.async_lock()
         device.async_lock.assert_awaited_once()
 
     async def test_lock_shows_locking_until_the_command_finishes(self):

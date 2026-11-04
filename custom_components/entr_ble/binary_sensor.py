@@ -30,14 +30,11 @@ class EntrStatusBinarySensor(  # pyright: ignore[reportIncompatibleVariableOverr
     @override
     def _set_state(self):
         if self._device.status is not None:
-            value = self._read(self._device.status)
-            if value is not None:
-                self._attr_is_on = value
+            self._attr_is_on = self._read(self._device.status)
 
 
 def _door_open(status):
-    closed = status.get("door_closed")
-    return None if closed is None else not closed
+    return not status["door_closed"]
 
 
 async def async_setup_entry(_hass, entry, async_add_entities):
@@ -50,7 +47,7 @@ async def async_setup_entry(_hass, entry, async_add_entities):
                 entry,
                 "charging",
                 "Charging",
-                lambda status: status.get("charging"),
+                lambda status: status["charging"],
                 BinarySensorDeviceClass.BATTERY_CHARGING,
                 EntityCategory.DIAGNOSTIC,
             ),
@@ -58,7 +55,7 @@ async def async_setup_entry(_hass, entry, async_add_entities):
                 entry,
                 "auto_lock",
                 "Auto-lock",
-                lambda status: status.get("auto_lock"),
+                lambda status: status["auto_lock"],
                 category=EntityCategory.DIAGNOSTIC,
             ),
         ]
