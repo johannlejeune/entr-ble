@@ -1,7 +1,9 @@
 {
   "domain": "entr_ble",
   "name": "ENTR BLE",
-  "categories": ["security_safety.locks_access"],
+  "categories": [
+    "security_safety.locks_access"
+  ],
   "codeowners": [
     "@johannlejeune"
   ],
@@ -14,7 +16,7 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/johannlejeune/entr-ble/issues",
   "requirements": [
-    "entr-ble==1.1.0"
+    "entr-ble==1.2.0"
   ],
-  "version": "1.1.0"
+  "version": "1.2.0"
 }
