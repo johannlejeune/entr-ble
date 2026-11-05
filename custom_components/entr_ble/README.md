@@ -1,8 +1,8 @@
 # ENTR BLE · Home Assistant
 
-**Control your ENTR Bluetooth lock from Home Assistant.** Add a lock entity, battery and door sensors, and direct control buttons using this HACS custom integration.
+**Control your ENTR Bluetooth lock from Home Assistant.** Add a lock entity, battery and door sensors, and direct control buttons using this Home Assistant integration from the Marketplace.
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/johannlejeune/entr-ble)
+[![Marketplace](https://img.shields.io/badge/Marketplace-Default-41BDF5.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=johannlejeune&repository=entr-ble&category=integration)
 ![Integration usage](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.entr_ble.total)
 
 [Project overview](../../README.md) · [CLI](../../packages/entr-ble-cli/README.md) · [Python library](../../src/entr_ble/README.md) · [Protocol notes](../../docs/PROTOCOL.md)
@@ -11,18 +11,17 @@ This is an independent project, unaffiliated with ASSA ABLOY.
 
 ## Requirements
 
-- **Home Assistant 2026.9.3+** and HACS.
+- **Home Assistant 2026.9.3+**.
 - Home Assistant's Bluetooth integration with connectable Bluetooth coverage in range of the lock.
 - A new or factory-reset lock, or an existing lock with an owner admin code, user activation code, or CLI credentials.
 
-## Install with HACS
+## Install from the Marketplace
 
-[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=johannlejeune&repository=entr-ble&category=integration)
+[![Open in the Marketplace](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=johannlejeune&repository=entr-ble&category=integration)
 
-1. Open the repository using the button above. Alternatively, add `https://github.com/johannlejeune/entr-ble` in HACS under **Custom repositories**, with category **Integration**.
-2. Download **ENTR BLE** through HACS.
-3. Restart Home Assistant.
-4. Open **Settings → Devices & services → Add integration → ENTR BLE**, or use the button below.
+1. Open the repository using the button above, or search for **ENTR BLE** in **Settings → Marketplace**.
+2. Download **ENTR BLE**.
+3. Open **Settings → Devices & services → Add integration → ENTR BLE**, or use the button below.
 
 [![Add integration](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=entr_ble)
 

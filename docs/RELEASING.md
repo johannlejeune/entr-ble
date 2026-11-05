@@ -1,6 +1,6 @@
 # Releases
 
-The library (`entr-ble`), CLI (`entr-ble-cli`), and Home Assistant integration share one version, one root changelog, and one GitHub release. Both Python packages are published to PyPI; HACS downloads the integration from the GitHub release tag without a separate ZIP asset.
+The library (`entr-ble`), CLI (`entr-ble-cli`), and Home Assistant integration share one version, one root changelog, and one GitHub release. Both Python packages are published to PyPI; the Marketplace downloads the integration from the GitHub release tag without a separate ZIP asset.
 
 ## One-time setup
 
@@ -16,7 +16,7 @@ Use Conventional Commits for changes: `fix:` requests a patch release, `feat:` a
 
 Release Please opens or refreshes a release PR on pushes to `main` and updates the root library version and changelog. The workflow runs `.github/scripts/sync-release.py` to synchronize the CLI version, integration version, and both library dependency pins, then runs `uv lock` to refresh the lockfile. Review the version and `CHANGELOG.md`, then merge the PR to release. Do not manually bump versions or create tags.
 
-After merging, the workflow creates a draft GitHub release, runs the existing checks against the release commit, and publishes each built package using PyPI Trusted Publishing in its own environment. Once both publication jobs succeed and both versions are available on PyPI, it attaches the wheels and source distributions and publishes the GitHub release using the changelog notes. HACS then offers that release.
+After merging, the workflow creates a draft GitHub release, runs the existing checks against the release commit, and publishes each built package using PyPI Trusted Publishing in its own environment. Once both publication jobs succeed and both versions are available on PyPI, it attaches the wheels and source distributions and publishes the GitHub release using the changelog notes. The Marketplace then offers that release.
 
 ## Failed releases
 

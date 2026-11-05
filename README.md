@@ -14,7 +14,7 @@
 
 | Use ENTR BLE to… | Start here | Component |
 | --- | --- | --- |
-| Control a lock from dashboards and automations | [Home Assistant guide](custom_components/entr_ble/README.md) | HACS custom integration |
+| Control a lock from dashboards and automations | [Home Assistant guide](custom_components/entr_ble/README.md) | Home Assistant integration |
 | Set up a lock, manage keys, or control it from a terminal | [CLI guide](packages/entr-ble-cli/README.md) | `entr-ble-cli` command |
 | Build your own application | [Python library guide](src/entr_ble/README.md) | `entr-ble` → `EntrLockClient` |
 
@@ -32,7 +32,7 @@ See [feature coverage](docs/FEATURES.md) for the complete command matrix and fir
 
 ## Before you start
 
-The Python packages require **Python 3.14+** and a working Bluetooth adapter; the HACS integration requires **Home Assistant 2026.9.3+** and connectable Bluetooth coverage.
+The Python packages require **Python 3.14+** and a working Bluetooth adapter; the Home Assistant integration requires **Home Assistant 2026.9.3+** and connectable Bluetooth coverage.
 
 ENTR has a single owner slot. Recovering ownership replaces the previous owner's credential. To keep the mobile app as owner, redeem an additional user key instead. Each component's guide explains the choice before setup.
 
