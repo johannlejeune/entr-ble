@@ -1,6 +1,6 @@
 [project]
 name = "entr-ble"
-version = "1.2.0"
+version = "1.2.1"
 description = "Python client for ENTR Bluetooth locks"
 readme = "README.md"
 license = "MIT"
