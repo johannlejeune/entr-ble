@@ -842,7 +842,7 @@ wheels = [
 
 [[package]]
 name = "entr-ble"
-version = "1.2.0"
+version = "1.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "bleak" },
@@ -876,7 +876,7 @@ hacs = [{ name = "homeassistant", marker = "python_full_version >= '3.14.2'", sp
 
 [[package]]
 name = "entr-ble-cli"
-version = "1.2.0"
+version = "1.2.1"
 source = { editable = "packages/entr-ble-cli" }
 dependencies = [
     { name = "entr-ble" },
@@ -1195,6 +1195,7 @@ dependencies = [
     { name = "yarl" },
     { name = "zeroconf" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/f2/13/ab2c1e18f48341791a77520a869cdb12f1cebd3e6e292ddf2061891b0fc6/homeassistant-2026.11.0.tar.gz", hash = "sha256:5a5e6af380793d53ab37fd9ce5b7a7e00a408a7258923fe75d0610e31a394468", size = 42012362, upload-time = "2026-11-05T13:03:49.664Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/28/0a/10c900142dfff3c8bda64e75d0077519c4ee9a3e0f18aabc67c023ac079f/homeassistant-2026.11.0-py3-none-any.whl", hash = "sha256:7ca5fbde9dea879ac7723949fc84347aac5182e6309c357b2e4973fd391b00f7", size = 67607712, upload-time = "2026-11-04T18:00:10.238Z" },
 ]
