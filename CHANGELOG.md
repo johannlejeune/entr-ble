@@ -2,6 +2,13 @@
 
 The Python library, CLI, and Home Assistant integration share one version and release together. Release Please maintains this file; each release's notes also appear in its GitHub release.
 
+## [1.2.1](https://github.com/johannlejeune/entr-ble/compare/v1.2.0...v1.2.1) (2026-11-12)
+
+
+### Documentation
+
+* install from the Home Assistant Marketplace ([#25](https://github.com/johannlejeune/entr-ble/issues/25)) ([675369d](https://github.com/johannlejeune/entr-ble/commit/675369d0309ae17ff30da97dd45b7f220c61eeea))
+
 ## [1.2.0](https://github.com/johannlejeune/entr-ble/compare/v1.1.0...v1.2.0) (2026-11-04)
 
 
