@@ -42,5 +42,5 @@ dev = [
     "ruff>=0.16.9",
 ]
 hacs = [
-    "homeassistant==2026.11.0",
+    "homeassistant==2026.11.1",
 ]
